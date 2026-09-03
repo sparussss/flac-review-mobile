@@ -1,4 +1,4 @@
-const CACHE='flac-review-mobile-v1.0.3-20260903';
+const CACHE='flac-review-mobile-v1.0.4-20260903';
 const CORE=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',e=>e.waitUntil(

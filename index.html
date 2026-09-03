@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>FLAC Metadata Review Mobile v1.0.3</title>
+  <title>FLAC Metadata Review Mobile v1.0.4</title>
 </head>
 <body>
   <header class="app-header">
@@ -80,7 +80,7 @@
       <div id="mbVersions" class="version-list"></div>
 
       <div class="note">
-        版本清單先顯示 Country / Date / Format / Catalog / Barcode。只有按「Use this version」時才讀取該 Release 的完整 Track、Duration 與 Cover，減少 MusicBrainz API request。
+        只顯示有 Cover Art Archive Front Cover、而且能找到目前歌曲 Track 的版本。Cover、Track、Disc、Duration、Δ Time 會自動載入並直接顯示；「Use this version」只負責選定版本。
       </div>
     </section>
 
@@ -126,7 +126,7 @@
 
   <div id="emptyState" class="empty-state">
     <div class="card onboarding">
-      <h2>FLAC Metadata Review Mobile v1.0.3</h2>
+      <h2>FLAC Metadata Review Mobile v1.0.4</h2>
       <p>iPhone 只負責 Review，不會接觸或修改 FLAC。先匯入 Apple Music Matcher v3.4.1 CSV。</p>
       <label class="file-button primary">Import v3.4.1 CSV<input id="matchFileInput" type="file" accept=".csv,text/csv"></label>
       <label class="file-button secondary">Import Windows Progress（可選）<input id="progressFileInputWelcome" type="file" accept=".csv,text/csv"></label>
@@ -144,7 +144,7 @@
     </div>
     <div class="search-row"><input id="searchInput" placeholder="搜尋 Artist / Title / Album"><select id="filterSelect"><option value="ALL">All</option><option value="UNREVIEWED">Unreviewed</option><option value="REVIEWED">Reviewed</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option><option value="NONE">NONE</option></select></div>
     <div id="trackList" class="track-list"></div>
-    <div class="drawer-note">PWA v1.0.3：資料只存在本機；請定期 Export Progress 做備份。</div>
+    <div class="drawer-note">PWA v1.0.4：資料只存在本機；請定期 Export Progress 做備份。</div>
   </aside>
   <div id="scrim" class="scrim hidden"></div>
 

@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.3 PWA
+﻿FLAC Metadata Review Mobile v1.0.4 PWA
 ===================================
 
 用途
@@ -241,3 +241,43 @@ Cover
 沒有 front cover → ArtworkSource = ORIGINAL
 
 真正 Writer 之後仍按既定規則處理到 3000×3000 artwork target。
+
+
+v1.0.4：完整有封面 Version 卡片
+--------------------------------
+本版依照手機 Review 操作改動 MusicBrainz Versions：
+
+1. 沒有 Cover Art Archive Front Cover 的 Release：直接不要，不顯示。
+2. 有 Front Cover 但找不到目前歌曲 Track 的 Release：直接不要，不顯示。
+3. 保留下來的 Version 會自動載入完整 Release detail，不需要再按 Load。
+4. 每張 Version 卡直接顯示：
+   - Cover（左邊）
+   - Country / Release Date（右邊）
+   - Format
+   - Catalog Number
+   - Barcode
+   - Track / Disc
+   - Duration
+   - Δ Time
+   - EXCELLENT / GOOD / CHECK / WARNING / MISMATCH
+5. Use this version 只負責「選定」，不再發送 MusicBrainz request。
+
+版面
+----
+手機 Version 卡固定橫向：
+- 左：正方形 Cover
+- 右：所有版本資料 + Use this version
+
+API / 503
+---------
+因為現在要直接顯示 Track / Disc / Duration / Δ Time，程式必須逐個讀 exact Release detail。
+本版沿用 MusicBrainz request queue、約 1.2 秒最小間隔、HTTP 429/5xx retry/backoff。
+搜尋時畫面會顯示：
+Step 3/3 · 檢查完整版本 x/y · 已保留 n
+
+每找到一個完整有封面的 Version，就會立即出現在畫面，不必等所有版本完成。
+如果中途某一個 Release 讀取失敗，會略過該 Release 並繼續下一個。
+
+DATE 安全規則保持不變
+---------------------
+選 Version 不會自動改 Final DATE。Release Date 仍只作 CandidateDateReference。

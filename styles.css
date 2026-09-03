@@ -93,3 +93,60 @@
   font-size:13px;
   color:var(--muted);
 }
+
+
+/* v1.0.4 — complete horizontal MusicBrainz version cards */
+.version-list{display:grid;gap:10px}
+.version-card{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  padding:10px;
+  background:#fff;
+}
+.version-card.selected{
+  border:2px solid #2563eb;
+  box-shadow:0 0 0 2px rgba(37,99,235,.08);
+}
+.version-cover-wrap{
+  flex:0 0 124px;
+  width:124px;
+  aspect-ratio:1/1;
+  border-radius:11px;
+  overflow:hidden;
+  background:#f1f5f9;
+}
+.version-cover{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:#fff;
+}
+.version-info{flex:1 1 auto;min-width:0}
+.version-head{display:flex;justify-content:space-between;gap:7px;align-items:flex-start}
+.version-country{font-size:17px;font-weight:850;color:var(--ink);line-height:1.15}
+.version-date{font-size:12px;color:var(--muted);font-weight:750;text-align:right;white-space:nowrap}
+.version-title{font-weight:800;font-size:14px;line-height:1.25;margin:4px 0 2px;overflow-wrap:anywhere}
+.version-meta{color:var(--muted);font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.version-facts{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin-top:7px}
+.version-fact{min-width:0;font-size:11px;line-height:1.25}
+.version-fact .k{display:block;color:var(--muted);font-size:9px;font-weight:750;text-transform:uppercase;letter-spacing:.02em}
+.version-fact .v{display:block;color:var(--ink);font-weight:750;overflow-wrap:anywhere}
+.version-duration{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.version-duration .pill{font-size:10px;padding:4px 6px}
+.version-actions{display:grid;grid-template-columns:1.4fr .8fr;gap:6px;margin-top:8px}
+.version-actions button{min-height:38px;padding:7px 8px;font-size:11px}
+@media (max-width:390px){
+  .version-card{gap:9px;padding:9px}
+  .version-cover-wrap{flex-basis:108px;width:108px}
+  .version-country{font-size:15px}
+  .version-title{font-size:13px}
+  .version-facts{gap:3px 6px}
+}
+@media (max-width:350px){
+  .version-cover-wrap{flex-basis:96px;width:96px}
+  .version-facts{grid-template-columns:1fr}
+}
