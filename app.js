@@ -72,7 +72,39 @@ function similarity(a,b){a=normalized(a);b=normalized(b);if(!a&&!b)return 1;if(!
 function artistCredit(ac){return Array.isArray(ac)?ac.map(x=>safe(x.name||x.artist?.name)+(x.joinphrase||'')).join(''):''}
 function mbEscape(s){return safe(s).replace(/([\\+\-!(){}\[\]^"~*?:/&|])/g,'\\$1')}
 
-function applyFilter(){const q=normalized($('#searchInput')?.value||''),f=$('#filterSelect')?.value||'ALL';state.filtered=state.tracks.filter(t=>{const d=ensureDecision(t),reviewed=!!d.Decision;if(f==='UNREVIEWED'&&reviewed)return false;if(f==='REVIEWED'&&!reviewed)return false;if(['HIGH','MEDIUM','LOW','NONE'].includes(f)&&t.Confidence!==f)return false;if(q&&!normalized(`${t.OLD_ARTIST} ${t.OLD_TITLE} ${t.OLD_ALBUM} ${t.FileName}`).includes(q))return false;return true});if(state.filtered.length&&!state.filtered.some(t=>t.RelativePath===state.currentKey)){state.currentKey=state.filtered[0].RelativePath;metaSet('currentKey',state.currentKey)}renderTrackList();updateProgress()}
+function trackMatchesActiveFilter(t){
+  const q=normalized($('#searchInput')?.value||''),f=$('#filterSelect')?.value||'ALL';
+  const d=ensureDecision(t),reviewed=!!d.Decision;
+  if(f==='UNREVIEWED'&&reviewed)return false;
+  if(f==='REVIEWED'&&!reviewed)return false;
+  if(['HIGH','MEDIUM','LOW','NONE'].includes(f)&&t.Confidence!==f)return false;
+  if(q&&!normalized(`${t.OLD_ARTIST} ${t.OLD_TITLE} ${t.OLD_ALBUM} ${t.FileName}`).includes(q))return false;
+  return true
+}
+function rebuildFiltered(){state.filtered=state.tracks.filter(trackMatchesActiveFilter)}
+function updateNavButtons(){
+  const gi=state.tracks.findIndex(t=>t.RelativePath===state.currentKey);
+  const hasPrev=gi>0&&state.tracks.slice(0,gi).some(trackMatchesActiveFilter);
+  const hasNext=gi>=0&&state.tracks.slice(gi+1).some(trackMatchesActiveFilter);
+  $('#prevBtn').disabled=!hasPrev;
+  $('#saveNextBtn').disabled=!hasNext
+}
+function refreshFilteredListKeepCurrent(){
+  rebuildFiltered();
+  renderTrackList();
+  updateProgress();
+  updateNavButtons()
+}
+function applyFilter(){
+  rebuildFiltered();
+  if(state.filtered.length&&!state.filtered.some(t=>t.RelativePath===state.currentKey)){
+    state.currentKey=state.filtered[0].RelativePath;
+    metaSet('currentKey',state.currentKey)
+  }
+  renderTrackList();
+  updateProgress();
+  updateNavButtons()
+}
 function updateProgress(){const total=state.tracks.length,done=state.tracks.filter(t=>!!ensureDecision(t).Decision).length;$('#progressText').textContent=total?`${done} / ${total} · ${Math.round(done/total*100)}% Reviewed`:'未載入資料';$('#progressFill').style.width=total?`${done/total*100}%`:'0%'}
 function renderTrackList(){const box=$('#trackList');if(!box)return;box.innerHTML=state.filtered.map(t=>{const d=ensureDecision(t),s=d.Decision||'—';return `<div class="track-item ${t.RelativePath===state.currentKey?'current':''}" data-key="${esc(t.RelativePath)}"><div class="track-status">${esc(t.Confidence)}<br>${esc(s)}</div><div class="track-copy"><b>${esc(t.OLD_TITLE)}</b>${esc(t.OLD_ARTIST)}</div></div>`}).join('');box.querySelectorAll('.track-item').forEach(el=>el.onclick=()=>{selectTrack(el.dataset.key);closeDrawer()})}
 function summaryItem(k,v){return `<div><b>${esc(k)}</b>${esc(v||'—')}</div>`}
@@ -84,7 +116,10 @@ function candidateHTML(c,selected){const cls=c.durationReview||'UNKNOWN',art=c.a
 function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t)return;const d=ensureDecision(t);$('#confidenceBadge').textContent=t.Confidence||'—';$('#confidenceBadge').className=`badge ${t.Confidence||''}`;$('#trackTitle').textContent=t.OLD_TITLE;$('#trackArtist').textContent=t.OLD_ARTIST;$('#flacSummary').innerHTML=summaryItem('Album',t.OLD_ALBUM)+summaryItem('Album Artist',t.OLD_ALBUMARTIST)+summaryItem('Date',t.OLD_DATE)+summaryItem('Track / Disc',`${t.OLD_TRACKNUMBER||'—'} / ${t.OLD_DISCNUMBER||'—'}`)+summaryItem('Genre',t.OLD_GENRE)+summaryItem('FLAC Time',t.FLAC_TIME||fmtTime(t.DurationSeconds));
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
-  fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();renderTrackList();updateProgress();$('#prevBtn').disabled=currentIndex()<=0;$('#saveNextBtn').disabled=currentIndex()<0||currentIndex()>=state.filtered.length-1;
+  fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
+  // v1.0.6: Review status changes are reflected in the drawer immediately.
+  // Keep the current song on screen even if it has just left the Unreviewed filter.
+  refreshFilteredListKeepCurrent();
 }
 function fillForm(d){$('#finalTitle').value=d.FinalTitle||'';$('#finalArtist').value=d.FinalArtist||'';$('#finalAlbum').value=d.FinalAlbum||'';$('#finalAlbumArtist').value=d.FinalAlbumArtist||'';$('#finalDate').value=d.FinalDate||'';$('#finalTrack').value=d.FinalTrackNumber||'';$('#finalDisc').value=d.FinalDiscNumber||'';$('#finalGenre').value=VALID_GENRES.includes(d.FinalGenre)?d.FinalGenre:'Pop';$('#finalArtwork').value=d.FinalArtworkUrl||''}
 function readFormIntoDecision(d){d.FinalTitle=$('#finalTitle').value;d.FinalArtist=$('#finalArtist').value;d.FinalAlbum=$('#finalAlbum').value;d.FinalAlbumArtist=$('#finalAlbumArtist').value;d.FinalDate=$('#finalDate').value;d.FinalTrackNumber=$('#finalTrack').value;d.FinalDiscNumber=$('#finalDisc').value;d.FinalGenre=$('#finalGenre').value;d.FinalArtworkUrl=$('#finalArtwork').value;d.LyricsSynced=normalizeSynced($('#lyricsSynced').value);d.LyricsPlain=d.LyricsSynced?plainFromSynced(d.LyricsSynced):$('#lyricsPlain').value;if(!d.Decision&&[d.FinalTitle,d.FinalArtist,d.FinalAlbum].some(Boolean)){} }
@@ -480,7 +515,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.5 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.6 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -548,7 +583,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.5: details are already loaded. Selection does not make another API call.
+    // v1.0.6: details are already loaded. Selection does not make another API call.
     writeVersionToM1(d,t,v);
     Object.assign(d,{
       Decision:'M1',
@@ -691,7 +726,18 @@ async function exportWritePlan(){const rows=state.tracks.map(t=>{const d=ensureD
 function switchSection(name){$$('.section-tab').forEach(b=>b.classList.toggle('active',b.dataset.section===name));$$('.section').forEach(s=>s.classList.toggle('active',s.id===`section-${name}`));if(name==='musicbrainz')void maybeAutoFindMusicBrainz()}
 function openDrawer(){$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#scrim').classList.remove('hidden');renderTrackList()}
 function closeDrawer(){$('#drawer').classList.remove('open');$('#drawer').setAttribute('aria-hidden','true');$('#scrim').classList.add('hidden')}
-async function nav(delta){const i=currentIndex(),n=i+delta;if(n>=0&&n<state.filtered.length)await selectTrack(state.filtered[n].RelativePath)}
+async function nav(delta){
+  const gi=state.tracks.findIndex(t=>t.RelativePath===state.currentKey);
+  if(gi<0)return;
+  const step=delta<0?-1:1;
+  for(let i=gi+step;i>=0&&i<state.tracks.length;i+=step){
+    if(trackMatchesActiveFilter(state.tracks[i])){
+      await selectTrack(state.tracks[i].RelativePath);
+      return
+    }
+  }
+  toast(delta>0?'已經係目前 Filter 最後一首':'已經係目前 Filter 第一首')
+}
 
 function wire(){
   $('#menuBtn').onclick=openDrawer;$('#closeDrawerBtn').onclick=closeDrawer;$('#scrim').onclick=closeDrawer;
@@ -702,7 +748,19 @@ function wire(){
   $('#lyricsSearchBtn').onclick=()=>searchLyrics({auto:false});$('#clearLyricsBtn').onclick=async()=>{if(!confirm('清除這首歌已儲存歌詞？'))return;const t=currentTrack(),d=ensureDecision(t);['LyricsEncodingStatus','LyricsSource','LyricsId','LyricsChoice','LyricsPlain','LyricsSynced','LyricsMatchedTitle','LyricsMatchedArtist','LyricsMatchedAlbum','LyricsMatchedDuration','LyricsInstrumental','LyricsAutoSignature','LyricsSearchStatus','LyricsSearchAt'].forEach(k=>d[k]='');await saveDecision(d);renderAll()};
   $('#lyricsFileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;const content=await f.text(),t=currentTrack(),d=ensureDecision(t),isLrc=f.name.toLowerCase().endsWith('.lrc')||/^\[\d{1,3}:\d{2}/m.test(content);if(isLrc){d.LyricsSynced=normalizeSynced(content);d.LyricsPlain=plainFromSynced(d.LyricsSynced);d.LyricsChoice='BOTH'}else{d.LyricsSynced='';d.LyricsPlain=content.replace(/\r?\n/g,'\r\n').trim();d.LyricsChoice='PLAIN'}d.LyricsSource='Manual file';d.LyricsEncodingStatus='MANUAL';d.LyricsId='';await saveDecision(d);renderAll();e.target.value=''};
   ['finalTitle','finalArtist','finalAlbum','finalAlbumArtist','finalDate','finalTrack','finalDisc','finalGenre','finalArtwork','lyricsSynced','lyricsPlain'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(id==='lyricsSynced'){const s=normalizeSynced($('#lyricsSynced').value);$('#lyricsPlain').value=s?plainFromSynced(s):$('#lyricsPlain').value}scheduleSave()}));
-  $('#prevBtn').onclick=()=>nav(-1);$('#saveNextBtn').onclick=async()=>{const t=currentTrack(),d=ensureDecision(t);readFormIntoDecision(d);await saveDecision(d);await nav(1)};
+  $('#prevBtn').onclick=()=>nav(-1);
+  $('#saveNextBtn').onclick=async()=>{
+    const t=currentTrack(),d=ensureDecision(t);
+    readFormIntoDecision(d);
+    await saveDecision(d);
+
+    // v1.0.6:
+    // Unreviewed -> completed song disappears immediately.
+    // Reviewed   -> completed song is immediately available in that filter.
+    // Search text / Confidence filter are preserved.
+    refreshFilteredListKeepCurrent();
+    await nav(1)
+  };
 }
 
 async function init(){state.db=await openDB();

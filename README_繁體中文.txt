@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.5 PWA
+﻿FLAC Metadata Review Mobile v1.0.6 PWA
 ===================================
 
 用途
@@ -307,3 +307,34 @@ v1.0.5：自動 MusicBrainz + 自動 Lyrics
    - Search LRCLIB / Retry 按鈕仍保留供手動重試。
 
 5. 自動 exact lyrics 成功後不會強制跳去 Lyrics 頁，避免打斷 Apple / MusicBrainz Review；Lyrics 已在背景儲存。
+
+
+v1.0.6：Unreviewed / Reviewed 即時同步
+---------------------------------------
+今版修正歌曲清單 Filter 未即時更新的問題。
+
+之前：
+- 選了 Apple / MusicBrainz version 後，Decision 已經變成 Reviewed
+- 頂部 Reviewed 數字會更新
+- 但 Drawer 的 Unreviewed 清單可能仍然保留該歌曲，直到重新 Filter / 重開頁面
+
+v1.0.6：
+- Decision 一改變，Drawer 清單立即依目前 Filter 重新計算
+- Filter = Unreviewed：
+  已選好的歌曲會立即從清單消失
+- Filter = Reviewed：
+  已 Review 的歌曲會立即出現在 Reviewed 清單
+- Search 關鍵字保持不變
+- HIGH / MEDIUM / LOW / NONE Filter 保持不變
+- 目前正在看的歌曲不會因為從 Unreviewed 清單消失而突然跳走
+- 按 Save & Next 後，才會前往「目前 Filter 中的下一首」
+
+例：
+1. Filter = Unreviewed
+2. 打開 Kim Wilde - If I Can't Have You
+3. Use MusicBrainz version
+4. Drawer 再打開時，該歌曲已不在 Unreviewed
+5. 主畫面仍停留在該歌曲，可繼續檢查 Lyrics / Metadata
+6. Save & Next -> 前往下一首 Unreviewed
+
+這樣可以避免正在 Review 時因清單更新而突然跳去下一首。
