@@ -3,7 +3,7 @@ const DB_VERSION=1;
 const VALID_GENRES=['Pop','Cantopop','J-Pop','K-Pop','Mandopop'];
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const state={tracks:[],decisions:new Map(),currentKey:null,filtered:[],db:null,saveTimer:null,mbLast:0,releaseCache:new Map()};
+const state={tracks:[],decisions:new Map(),currentKey:null,filtered:[],db:null,saveTimer:null,mbLast:0,releaseCache:new Map(),mbJsonCache:new Map()};
 
 function toast(msg,ms=2200){const el=$('#toast');el.textContent=msg;el.classList.remove('hidden');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.add('hidden'),ms)}
 function safe(v){return v==null?'':String(v)}
@@ -100,7 +100,77 @@ async function applyCandidate(rank){const t=currentTrack(),d=ensureDecision(t);i
 async function keepOriginal(){const t=currentTrack(),d=ensureDecision(t);Object.assign(d,{Decision:'KEEP',CandidateRank:'',FinalTitle:t.OLD_TITLE,FinalArtist:t.OLD_ARTIST,FinalAlbum:t.OLD_ALBUM,FinalAlbumArtist:t.OLD_ALBUMARTIST,FinalDate:t.OLD_DATE,FinalTrackNumber:t.OLD_TRACKNUMBER,FinalDiscNumber:t.OLD_DISCNUMBER,FinalGenre:VALID_GENRES.includes(t.TARGET_GENRE)?t.TARGET_GENRE:t.OLD_GENRE,FinalArtworkUrl:'',MetadataSource:'ORIGINAL',ArtworkSource:'ORIGINAL',SelectedAppleUrl:'',SelectedAppleTrackId:'',SelectedMusicBrainzUrl:'',SelectedMusicBrainzRecordingId:'',SelectedMusicBrainzReleaseId:'',SelectedMusicBrainzReleaseGroupId:'',SelectedMusicBrainzISRC:'',CandidateDateReference:'',CandidateDateReferenceType:''});await saveDecision(d);renderAll();toast('Keep Original')}
 async function manual(){const t=currentTrack(),d=ensureDecision(t);readFormIntoDecision(d);d.Decision='MANUAL';d.CandidateRank='';d.MetadataSource='MANUAL';if(!d.ArtworkSource)d.ArtworkSource=d.FinalArtworkUrl?'MANUAL':'ORIGINAL';await saveDecision(d);renderAll();switchSection('metadata');toast('Manual mode')}
 
-let mbQueue=Promise.resolve();async function mbFetch(url){mbQueue=mbQueue.catch(()=>{}).then(async()=>{const wait=Math.max(0,1100-(Date.now()-state.mbLast));if(wait)await new Promise(r=>setTimeout(r,wait));state.mbLast=Date.now();const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw new Error(`MusicBrainz HTTP ${res.status}: ${await res.text()}`);return res.json()});return mbQueue}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function retryAfterMs(res){
+  const v=res.headers.get('Retry-After');
+  if(!v)return 0;
+  const sec=Number(v);
+  if(Number.isFinite(sec)&&sec>=0)return Math.round(sec*1000);
+  const when=Date.parse(v);
+  return Number.isFinite(when)?Math.max(0,when-Date.now()):0
+}
+function mbBusyMessage(status,attempt,maxRetries,waitMs){
+  const sec=Math.max(1,Math.ceil(waitMs/1000));
+  const el=$('#mbStatus');
+  if(el)el.textContent=`MusicBrainz 暫時繁忙 (HTTP ${status}) · ${sec}s 後自動重試 ${attempt}/${maxRetries}`;
+}
+let mbQueue=Promise.resolve();
+async function mbFetch(url,{maxRetries=3,useCache=true}={}){
+  if(useCache&&state.mbJsonCache.has(url))return state.mbJsonCache.get(url);
+
+  mbQueue=mbQueue.catch(()=>{}).then(async()=>{
+    let lastError=null;
+
+    for(let attempt=0;attempt<=maxRetries;attempt++){
+      const throttleWait=Math.max(0,1200-(Date.now()-state.mbLast));
+      if(throttleWait)await sleep(throttleWait);
+
+      state.mbLast=Date.now();
+
+      let res;
+      try{
+        res=await fetch(url,{
+          headers:{'Accept':'application/json'},
+          cache:'no-store'
+        });
+      }catch(err){
+        lastError=err;
+        if(attempt>=maxRetries)throw err;
+
+        const waitMs=[2500,5000,10000][Math.min(attempt,2)]+Math.floor(Math.random()*500);
+        const el=$('#mbStatus');
+        if(el)el.textContent=`MusicBrainz 網絡暫時不穩定 · ${Math.ceil(waitMs/1000)}s 後自動重試 ${attempt+1}/${maxRetries}`;
+        await sleep(waitMs);
+        continue;
+      }
+
+      if(res.ok){
+        const data=await res.json();
+        if(useCache)state.mbJsonCache.set(url,data);
+        return data;
+      }
+
+      const body=await res.text();
+      const retryable=[429,500,502,503,504].includes(res.status);
+
+      if(retryable&&attempt<maxRetries){
+        let waitMs=retryAfterMs(res);
+        if(!waitMs)waitMs=[3000,6000,12000][Math.min(attempt,2)];
+        waitMs+=Math.floor(Math.random()*700);
+        mbBusyMessage(res.status,attempt+1,maxRetries,waitMs);
+        await sleep(waitMs);
+        continue;
+      }
+
+      const compact=body.replace(/\s+/g,' ').trim().slice(0,400);
+      throw new Error(`MusicBrainz HTTP ${res.status}${compact?`: ${compact}`:''}`);
+    }
+
+    throw lastError||new Error('MusicBrainz request failed');
+  });
+
+  return mbQueue;
+}
 async function mbSearchSafe(q,plain){const base='https://musicbrainz.org/ws/2/recording/';let u=`${base}?query=${encodeURIComponent(q)}&limit=25&fmt=json`;try{return await mbFetch(u)}catch(e){if(String(e.message).includes('HTTP 400'))return mbFetch(`${base}?query=${encodeURIComponent(plain)}&limit=25&fmt=json&dismax=true`);throw e}}
 function mbLocalScore(t,rec,rel){const titleSim=similarity(t.OLD_TITLE,rec.title),artist=artistCredit(rec['artist-credit']),artist0=primaryArtist(t.OLD_ARTIST),artistSim=Math.max(similarity(artist0,artist),(normalized(artist0).includes(normalized(artist))||normalized(artist).includes(normalized(artist0)))?.95:0),albumSim=t.OLD_ALBUM?similarity(t.OLD_ALBUM,rel.title):.5;let ds=0;if(num(t.DurationSeconds)&&num(rec.length)){const diff=Math.abs(num(t.DurationSeconds)-num(rec.length)/1000);ds=diff<=2?1:diff<=5?.8:diff<=10?.5:0}const mbs=Math.min(100,Math.max(0,num(rec.score)))/100;let score=35*titleSim+22*artistSim+28*albumSim+10*ds+5*mbs;if(rel.status==='Official')score+=1.5;return{score:Math.min(100,score),albumSim}}
 function addMbResults(t,json,map){for(const rec of json.recordings||[]){for(const rel of rec.releases||[]){if(!rel.id)continue;const s=mbLocalScore(t,rec,rel),key=`${rel.id}|${rec.id}`;if(!map.has(key)||map.get(key).score<s.score)map.set(key,{recording:rec,release:rel,score:s.score,albumSim:s.albumSim})}}}
@@ -108,7 +178,99 @@ async function mbReleaseDetail(id){if(state.releaseCache.has(id))return state.re
 function mbTrack(detail,recordingId,wanted){let best=null,bestS=-1;for(const medium of detail?.media||[]){for(const tr of medium.tracks||[]){const rid=tr.recording?.id||'',title=tr.title||tr.recording?.title||'';if(recordingId&&rid===recordingId)return{track:tr,medium};const s=similarity(wanted,title);if(s>bestS){bestS=s;best={track:tr,medium}}}}return bestS>=.72?best:null}
 function saveMbCandidate(d,t,rank,e,detail,ti){const p=`M${rank}_`,rec=e.recording,rel=e.release,tr=ti?.track,med=ti?.medium;const title=tr?.title||rec.title||'',artist=artistCredit(tr?.['artist-credit'])||artistCredit(rec['artist-credit']),albumArtist=artistCredit(detail?.['artist-credit'])||artistCredit(rel['artist-credit']),date=detail?.date||rel.date||'',durMs=num(tr?.length)||num(tr?.recording?.length)||num(rec.length),inf=durationInfo(t.DurationSeconds,durMs/1000),front=!!detail?.['cover-art-archive']?.front,releaseId=rel.id,rg=detail?.['release-group']?.id||rel['release-group']?.id||'',isrcs=[...(tr?.recording?.isrcs||[]),...(rec.isrcs||[])].filter(Boolean),catalog=[...new Set((detail?.['label-info']||[]).map(x=>x['catalog-number']).filter(Boolean))].join(';'),format=med?.format||'',trackNo=tr?.number||tr?.position||'',disc=med?.position||'';
   const vals={SCORE:e.score.toFixed(1),COUNTRY:detail?.country||rel.country||'',RECORDING_ID:rec.id||'',RELEASE_ID:releaseId,RELEASE_GROUP_ID:rg,TITLE:title,ARTIST:artist,ALBUM:detail?.title||rel.title||'',ALBUMARTIST:albumArtist,DATE:date,TRACKNUMBER:trackNo,DISCNUMBER:disc,URL:`https://musicbrainz.org/release/${releaseId}`,ARTWORK:front?`https://coverartarchive.org/release/${releaseId}/front`:'',ARTWORK_PREVIEW:front?`https://coverartarchive.org/release/${releaseId}/front-500`:'',CAA_STATUS:front?'FRONT':'NO_FRONT',ISRC:[...new Set(isrcs)].join(';'),DURATION_MS:durMs||'',DURATION_SEC:inf.sec,TIME:inf.time,TIME_DELTA_SEC:inf.deltaSec,TIME_DELTA:inf.delta,TIME_DIFF_SEC:inf.diff,DURATION_REVIEW:inf.review,STATUS:detail?.status||rel.status||'',FORMAT:format,BARCODE:detail?.barcode||rel.barcode||'',CATALOG:catalog};Object.entries(vals).forEach(([k,v])=>d[p+k]=v)}
-async function searchMusicBrainz(){const t=currentTrack(),d=ensureDecision(t);readFormIntoDecision(d);$('#mbSearchBtn').disabled=true;$('#mbStatus').textContent='搜尋中…';try{const title=t.OLD_TITLE,artist=primaryArtist(t.OLD_ARTIST),album=t.OLD_ALBUM,qt=mbEscape(title),qa=mbEscape(artist),qal=mbEscape(album),queries=[];if(album&&artist)queries.push(`recording:"${qt}" AND artist:"${qa}" AND release:"${qal}"`);if(artist)queries.push(`recording:"${qt}" AND artist:"${qa}"`);if(album)queries.push(`recording:"${qt}" AND release:"${qal}"`);queries.push(`recording:"${qt}"`);const map=new Map(),used=[];for(const q of [...new Set(queries)]){used.push(q);const j=await mbSearchSafe(q,`${title} ${artist} ${album}`);addMbResults(t,j,map);if([...map.values()].filter(x=>x.score>=78&&x.albumSim>=.70).length>=3)break}const top=[...map.values()].sort((a,b)=>b.score-a.score).slice(0,3);for(let r=1;r<=3;r++)for(const f of ['SCORE','COUNTRY','RECORDING_ID','RELEASE_ID','RELEASE_GROUP_ID','TITLE','ARTIST','ALBUM','ALBUMARTIST','DATE','TRACKNUMBER','DISCNUMBER','URL','ARTWORK','ARTWORK_PREVIEW','CAA_STATUS','ISRC','DURATION_MS','DURATION_SEC','TIME','TIME_DELTA_SEC','TIME_DELTA','TIME_DIFF_SEC','DURATION_REVIEW','STATUS','FORMAT','BARCODE','CATALOG'])d[`M${r}_${f}`]='';for(let i=0;i<top.length;i++){const detail=await mbReleaseDetail(top[i].release.id),ti=mbTrack(detail,top[i].recording.id,top[i].recording.title);saveMbCandidate(d,t,i+1,top[i],detail,ti)}d.MusicBrainzSearchStatus=top.length?`FOUND_${top.length}`:'NOT_FOUND';d.MusicBrainzSearchQuery=used.join(' || ');d.MusicBrainzSearchAt=now();await saveDecision(d);renderAll();toast(top.length?`找到 ${top.length} 個 MusicBrainz 候選`:'沒有 MusicBrainz 候選')}catch(e){console.error(e);$('#mbStatus').textContent=`MusicBrainz error: ${e.message}`;alert(`MusicBrainz 搜尋失敗：\n${e.message}\n\n如果 iPhone Safari 阻擋直接 API，可以先在 Windows 搜尋後 Export Progress，再 Import 到手機。`)}finally{$('#mbSearchBtn').disabled=false}}
+async function searchMusicBrainz(){
+  const t=currentTrack(),d=ensureDecision(t);
+  readFormIntoDecision(d);
+  $('#mbSearchBtn').disabled=true;
+  $('#mbStatus').textContent='搜尋 MusicBrainz…';
+
+  try{
+    const title=t.OLD_TITLE,
+          artist=primaryArtist(t.OLD_ARTIST),
+          album=t.OLD_ALBUM,
+          qt=mbEscape(title),
+          qa=mbEscape(artist),
+          qal=mbEscape(album);
+
+    // Most precise searches first. Avoid unnecessary broad calls on mobile.
+    const queryPlan=[];
+    if(album&&artist)queryPlan.push({
+      q:`recording:"${qt}" AND artist:"${qa}" AND release:"${qal}"`,
+      plain:`${title} ${artist} ${album}`
+    });
+    if(artist)queryPlan.push({
+      q:`recording:"${qt}" AND artist:"${qa}"`,
+      plain:`${title} ${artist}`
+    });
+    if(album)queryPlan.push({
+      q:`recording:"${qt}" AND release:"${qal}"`,
+      plain:`${title} ${album}`
+    });
+
+    const map=new Map(),used=[];
+
+    for(const step of queryPlan){
+      used.push(step.q);
+      const j=await mbSearchSafe(step.q,step.plain);
+      addMbResults(t,j,map);
+
+      const vals=[...map.values()];
+      const strong=vals.filter(x=>x.score>=78&&x.albumSim>=.70);
+
+      if(strong.length>=3)break;
+      if(vals.length>=6&&strong.length>=2)break;
+    }
+
+    // Only do a title-only search if earlier searches found nothing.
+    if(map.size===0){
+      const q=`recording:"${qt}"`;
+      used.push(q);
+      const j=await mbSearchSafe(q,title);
+      addMbResults(t,j,map);
+    }
+
+    const top=[...map.values()].sort((a,b)=>b.score-a.score).slice(0,3);
+
+    for(let r=1;r<=3;r++){
+      for(const f of ['SCORE','COUNTRY','RECORDING_ID','RELEASE_ID','RELEASE_GROUP_ID','TITLE','ARTIST','ALBUM','ALBUMARTIST','DATE','TRACKNUMBER','DISCNUMBER','URL','ARTWORK','ARTWORK_PREVIEW','CAA_STATUS','ISRC','DURATION_MS','DURATION_SEC','TIME','TIME_DELTA_SEC','TIME_DELTA','TIME_DIFF_SEC','DURATION_REVIEW','STATUS','FORMAT','BARCODE','CATALOG']){
+        d[`M${r}_${f}`]='';
+      }
+    }
+
+    for(let i=0;i<top.length;i++){
+      $('#mbStatus').textContent=`MusicBrainz 候選 ${i+1}/${top.length} · 讀取 Release…`;
+      const detail=await mbReleaseDetail(top[i].release.id);
+      const ti=mbTrack(detail,top[i].recording.id,top[i].recording.title);
+      saveMbCandidate(d,t,i+1,top[i],detail,ti);
+    }
+
+    d.MusicBrainzSearchStatus=top.length?`FOUND_${top.length}`:'NOT_FOUND';
+    d.MusicBrainzSearchQuery=used.join(' || ');
+    d.MusicBrainzSearchAt=now();
+    await saveDecision(d);
+    renderAll();
+    toast(top.length?`找到 ${top.length} 個 MusicBrainz 候選`:'沒有 MusicBrainz 候選');
+  }catch(e){
+    console.error(e);
+    const msg=String(e.message||e);
+    $('#mbStatus').textContent=`MusicBrainz error: ${msg}`;
+
+    if(msg.includes('HTTP 503')){
+      alert(
+        `MusicBrainz 暫時繁忙（HTTP 503）。\n\n`+
+        `v1.0.1 已自動重試；如果仍然出現，代表 MusicBrainz 伺服器／流量限制暫時未恢復，唔係 iPhone Safari 阻擋。\n\n`+
+        `你可以先繼續 Review Apple A1/A2/A3，遲啲再按 Search MusicBrainz。`
+      );
+    }else{
+      alert(
+        `MusicBrainz 搜尋失敗：\n${msg}\n\n`+
+        `可以稍後再試；已經儲存的 Apple / Review Progress 不會受影響。`
+      );
+    }
+  }finally{
+    $('#mbSearchBtn').disabled=false;
+  }
+}
 
 function normalizeSynced(text){if(!text.trim())return'';const out=[];for(const raw of text.replace(/\r/g,'').split('\n')){const line=raw.replace(/\s+$/,'');if(/^\[(ar|ti|al|by|offset|length|re|ve):/i.test(line))continue;const ms=[...line.matchAll(/\[(\d{1,3}:\d{2}(?:[.:]\d{1,3})?)\]/g)];if(ms.length){const last=ms[ms.length-1],body=line.slice(last.index+last[0].length);ms.forEach(m=>out.push(`[${m[1]}]${body}`))}else if(line.trim())out.push(line)}return out.join('\r\n')}
 function plainFromSynced(text){return safe(text).split(/\r?\n/).map(x=>x.replace(/^(?:\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\])+/,'')).join('\r\n')}

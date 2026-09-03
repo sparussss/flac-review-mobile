@@ -1,4 +1,4 @@
-FLAC Metadata Review Mobile v1.0 PWA
+﻿FLAC Metadata Review Mobile v1.0.1 PWA
 ===================================
 
 用途
@@ -98,3 +98,31 @@ Mobile v1.0 永遠不會：
 2. MusicBrainz / LRCLIB / Cover 顯示需要網絡。
 3. iPhone Safari 對第三方 API 的跨網域政策由對方服務決定；如 MusicBrainz 在 Safari 暫時拒絕 direct fetch，可在 Windows 搜尋 MusicBrainz 後 Export Progress，再 Import 到手機，M1/M2/M3 仍可離線 Review。
 4. v1.0 未做 Firebase / iCloud 自動同步；目前用 Export / Import 在 iPhone 與 Windows 之間接力。
+
+
+v1.0.1：MusicBrainz HTTP 503 修正
+--------------------------------
+MusicBrainz 的 HTTP 503 代表 request 已經到達 MusicBrainz，
+但服務當時因 rate limit 或全站繁忙而拒絕 request。
+這不是 iPhone Safari CORS 阻擋。
+
+v1.0.1 加入：
+- HTTP 429 / 500 / 502 / 503 / 504 自動重試
+- 支援 Retry-After
+- 退避約 3 秒 → 6 秒 → 12 秒
+- 每次 MusicBrainz request 最少約 1.2 秒間隔
+- 減少不必要的 broad search
+- 同一 session MusicBrainz JSON cache
+- Release detail cache 繼續保留
+- 503 最終仍失敗時，會清楚提示「MusicBrainz 暫時繁忙」
+- Service Worker 改為 network-first，GitHub Pages 更新較容易生效
+
+GitHub Pages 更新
+----------------
+把 v1.0.1 ZIP 內所有檔案覆蓋 repository 根目錄舊版後 Commit。
+
+如果 iPhone 仍然顯示 v1.0：
+1. Safari 重新整理 GitHub Pages。
+2. 完全關閉已加入主畫面的 PWA。
+3. 再開一次。
+4. 頁面應顯示 Mobile v1.0.1。
