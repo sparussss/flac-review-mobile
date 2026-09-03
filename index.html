@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>FLAC Metadata Review Mobile v1.0.2</title>
+  <title>FLAC Metadata Review Mobile v1.0.3</title>
 </head>
 <body>
   <header class="app-header">
@@ -58,29 +58,30 @@
 
     <section id="section-musicbrainz" class="section">
       <div class="section-heading">
-        <div><h3>MusicBrainz M1 / M2 / M3</h3><span class="subtle">同一專輯可能有多個國家／地區 Release</span></div>
-        <button id="mbSearchBtn">Search MusicBrainz</button>
+        <div>
+          <h3>MusicBrainz Versions</h3>
+          <span class="subtle">先確認最吻合 Album，再列出該 Album 的各國／地區 Release</span>
+        </div>
+        <button id="mbSearchBtn">Find Versions</button>
       </div>
-      <div class="mb-pref-row">
-        <label>Release Country
-          <select id="mbCountryPref">
-            <option value="">Auto</option>
-            <option value="JP">JP · Japan</option>
-            <option value="HK">HK · Hong Kong</option>
-            <option value="GB">GB · United Kingdom</option>
-            <option value="US">US · United States</option>
-            <option value="TW">TW · Taiwan</option>
-            <option value="KR">KR · South Korea</option>
-            <option value="CN">CN · China</option>
-            <option value="XE">XE · Europe</option>
-            <option value="AU">AU · Australia</option>
-            <option value="ZA">ZA · South Africa</option>
+
+      <div id="mbStatus" class="status-box">未搜尋</div>
+      <div id="mbAlbumSummary" class="mb-album-summary hidden"></div>
+
+      <div id="mbVersionTools" class="mb-version-tools hidden">
+        <label>Country
+          <select id="mbVersionCountryFilter">
+            <option value="ALL">All versions</option>
           </select>
         </label>
-        <span class="subtle">只作同分 Release 排序；不改歌曲／專輯 matching score。</span>
+        <span id="mbVersionCount" class="subtle"></span>
       </div>
-      <div id="mbStatus" class="status-box">未搜尋</div>
-      <div id="mbCandidates" class="candidate-list"></div>
+
+      <div id="mbVersions" class="version-list"></div>
+
+      <div class="note">
+        版本清單先顯示 Country / Date / Format / Catalog / Barcode。只有按「Use this version」時才讀取該 Release 的完整 Track、Duration 與 Cover，減少 MusicBrainz API request。
+      </div>
     </section>
 
     <section id="section-metadata" class="section">
@@ -125,7 +126,7 @@
 
   <div id="emptyState" class="empty-state">
     <div class="card onboarding">
-      <h2>FLAC Metadata Review Mobile v1.0.2</h2>
+      <h2>FLAC Metadata Review Mobile v1.0.3</h2>
       <p>iPhone 只負責 Review，不會接觸或修改 FLAC。先匯入 Apple Music Matcher v3.4.1 CSV。</p>
       <label class="file-button primary">Import v3.4.1 CSV<input id="matchFileInput" type="file" accept=".csv,text/csv"></label>
       <label class="file-button secondary">Import Windows Progress（可選）<input id="progressFileInputWelcome" type="file" accept=".csv,text/csv"></label>
@@ -143,7 +144,7 @@
     </div>
     <div class="search-row"><input id="searchInput" placeholder="搜尋 Artist / Title / Album"><select id="filterSelect"><option value="ALL">All</option><option value="UNREVIEWED">Unreviewed</option><option value="REVIEWED">Reviewed</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option><option value="NONE">NONE</option></select></div>
     <div id="trackList" class="track-list"></div>
-    <div class="drawer-note">PWA v1.0.2：資料只存在本機；請定期 Export Progress 做備份。</div>
+    <div class="drawer-note">PWA v1.0.3：資料只存在本機；請定期 Export Progress 做備份。</div>
   </aside>
   <div id="scrim" class="scrim hidden"></div>
 

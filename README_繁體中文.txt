@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.2 PWA
+﻿FLAC Metadata Review Mobile v1.0.3 PWA
 ===================================
 
 用途
@@ -163,3 +163,81 @@ MusicBrainz 這個 Release Group 本身有多個 1993 版本。
 
 如果 Auto：
 程式不會假裝知道原 FLAC 的國家版。
+
+
+v1.0.3：MusicBrainz 改為「列出各版本」
+---------------------------------------
+v1.0.2 的 M1/M2/M3 仍然只顯示 Top 3，
+所以同一 Album 有 ZA / GB / JP / US 等多個 Release 時，
+日本版可能根本不在頭三個。
+
+v1.0.3 改成兩層流程：
+
+Step 1
+------
+MusicBrainz 先用：
+Title + Artist + 原 FLAC Album + Duration
+確認最吻合的 Recording / Album / Release Group。
+
+Step 2
+------
+再直接搜尋該 Album 的實際 Releases，
+把相符 Release 全部列出，不再只顯示 M1/M2/M3 三個。
+
+每個 version 先顯示：
+- Country
+- Release Date
+- Format
+- Status
+- Label
+- Catalog Number
+- Barcode
+
+上方 Country filter 會自動由本次真正找到的版本產生：
+All / JP / GB / ZA / XE / US ...
+
+因此如果 MusicBrainz 有日本版，
+可以直接把 Country filter 改成 JP 查看。
+
+減少 API request
+----------------
+搜尋版本時不會立即對每一個 Release 逐個下載完整 track list。
+
+只有當你按：
+Use this version
+
+程式才會：
+1. 讀取該 exact Release detail
+2. 確認該 Release 有目前歌曲
+3. 取得 Track / Disc
+4. 取得 exact Release Track Duration
+5. 與 FLAC 計 Δ Time
+6. 取得 Cover Art Archive front cover（如有）
+7. 套用為 Final Metadata
+
+這樣避免一次列 10 個版本就連續打 10+ 次 MusicBrainz API，
+減少 503 / rate limit。
+
+Windows Progress 相容
+---------------------
+手機選定某個 MusicBrainz version 後，
+該「已選版本」會寫入 Progress 的 M1 欄位，
+Decision = M1。
+
+所以目前 Windows Review 程式仍可讀取手機選定的 MusicBrainz version。
+M2/M3 會留空；所有未選版本只保存在 Mobile 的 MusicBrainzVersionsJson。
+
+DATE 安全
+---------
+即使選 MusicBrainz Release，
+Final DATE 仍保留原 FLAC DATE。
+Release date 只放 CandidateDateReference，
+除非你在 Metadata 頁手動修改 Final DATE。
+
+Cover
+-----
+選定 exact Release 後：
+有 Cover Art Archive front → 使用該 exact Release cover URL
+沒有 front cover → ArtworkSource = ORIGINAL
+
+真正 Writer 之後仍按既定規則處理到 3000×3000 artwork target。
