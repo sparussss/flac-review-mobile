@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.1 PWA
+﻿FLAC Metadata Review Mobile v1.0.2 PWA
 ===================================
 
 用途
@@ -126,3 +126,40 @@ GitHub Pages 更新
 2. 完全關閉已加入主畫面的 PWA。
 3. 再開一次。
 4. 頁面應顯示 Mobile v1.0.1。
+
+
+v1.0.2：MusicBrainz 同分 Release Country
+---------------------------------------
+MusicBrainz 同一張專輯通常會有多個實際 Release：
+JP / GB / US / ZA / XE 等。
+
+以前 Mobile 只按 local score 排前 3。
+如果多個 Release 的 Title / Artist / Album / Duration 幾乎完全一樣，
+它們會得到相同分數，MusicBrainz API 返回順序就可能令 ZA / GB
+排在 JP 前面。
+
+這不代表 ZA 比 JP 更正確，只代表：
+現有 FLAC metadata 沒有足夠資料去判斷原檔究竟來自哪一個國家版。
+
+v1.0.2 改動：
+- MusicBrainz 頁新增 Release Country：
+  Auto / JP / HK / GB / US / TW / KR / CN / XE / AU / ZA
+- Country 只用作同分／接近分 Release 的排序優先。
+- 不會修改 Title / Artist / Album / Duration matching score。
+- Search Status 會列出本次搜尋實際找到的 Release countries。
+- MusicBrainz candidate 以 Release ID dedupe，與 Windows 邏輯一致。
+- Broad search early-stop 條件改回與 Windows 較一致。
+- Country preference 會記住在 iPhone 本機。
+
+例：
+Kim Wilde - If I Can't Have You
+The Singles Collection 1981-1993
+
+MusicBrainz 這個 Release Group 本身有多個 1993 版本。
+如果想檢查日本版：
+1. MusicBrainz → Release Country → JP
+2. 再按 Search MusicBrainz
+3. JP Release 會優先排入 M1/M2/M3（只要 MusicBrainz 搜尋結果包含 JP）
+
+如果 Auto：
+程式不會假裝知道原 FLAC 的國家版。
