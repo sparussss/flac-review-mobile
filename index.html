@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>FLAC Metadata Review Mobile v1.0.4</title>
+  <title>FLAC Metadata Review Mobile v1.0.5</title>
 </head>
 <body>
   <header class="app-header">
@@ -62,7 +62,7 @@
           <h3>MusicBrainz Versions</h3>
           <span class="subtle">先確認最吻合 Album，再列出該 Album 的各國／地區 Release</span>
         </div>
-        <button id="mbSearchBtn">Find Versions</button>
+        <button id="mbSearchBtn">Find Versions / Retry</button>
       </div>
 
       <div id="mbStatus" class="status-box">未搜尋</div>
@@ -103,7 +103,7 @@
     <section id="section-lyrics" class="section">
       <div class="section-heading">
         <div><h3>Lyrics</h3><span class="subtle">Synced 優先；Plain 由 Synced 保持同樣分行</span></div>
-        <button id="lyricsSearchBtn">Search LRCLIB</button>
+        <button id="lyricsSearchBtn">Search LRCLIB / Retry</button>
       </div>
       <div id="lyricsStatus" class="status-box">未搜尋</div>
       <div class="lyrics-tabs">
@@ -126,7 +126,7 @@
 
   <div id="emptyState" class="empty-state">
     <div class="card onboarding">
-      <h2>FLAC Metadata Review Mobile v1.0.4</h2>
+      <h2>FLAC Metadata Review Mobile v1.0.5</h2>
       <p>iPhone 只負責 Review，不會接觸或修改 FLAC。先匯入 Apple Music Matcher v3.4.1 CSV。</p>
       <label class="file-button primary">Import v3.4.1 CSV<input id="matchFileInput" type="file" accept=".csv,text/csv"></label>
       <label class="file-button secondary">Import Windows Progress（可選）<input id="progressFileInputWelcome" type="file" accept=".csv,text/csv"></label>
@@ -144,7 +144,7 @@
     </div>
     <div class="search-row"><input id="searchInput" placeholder="搜尋 Artist / Title / Album"><select id="filterSelect"><option value="ALL">All</option><option value="UNREVIEWED">Unreviewed</option><option value="REVIEWED">Reviewed</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option><option value="NONE">NONE</option></select></div>
     <div id="trackList" class="track-list"></div>
-    <div class="drawer-note">PWA v1.0.4：資料只存在本機；請定期 Export Progress 做備份。</div>
+    <div class="drawer-note">PWA v1.0.5：資料只存在本機；請定期 Export Progress 做備份。</div>
   </aside>
   <div id="scrim" class="scrim hidden"></div>
 

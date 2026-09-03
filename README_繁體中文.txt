@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.4 PWA
+﻿FLAC Metadata Review Mobile v1.0.5 PWA
 ===================================
 
 用途
@@ -281,3 +281,29 @@ Step 3/3 · 檢查完整版本 x/y · 已保留 n
 DATE 安全規則保持不變
 ---------------------
 選 Version 不會自動改 Final DATE。Release Date 仍只作 CandidateDateReference。
+
+
+v1.0.5：自動 MusicBrainz + 自動 Lyrics
+---------------------------------------
+1. 進入 MusicBrainz 頁面時：
+   - 如果本曲未搜尋過 versions，會自動 Find Versions。
+   - 已有完整 versions cache 時直接顯示，不重複打 API。
+   - NO_COMPLETE_COVER_VERSIONS 不會每次重搜。
+   - 自動搜尋失敗時設 60 秒 cooldown；Find Versions / Retry 仍可手動重試。
+   - 如果一直停在 MusicBrainz 頁，再按 Save & Next 到下一首，也會自動 Find Versions。
+
+2. 選 Apple A1/A2/A3 後：
+   - 自動以已選 Apple Title / Artist / Album / candidate Duration 搜 LRCLIB。
+
+3. 選 MusicBrainz Version 後：
+   - 自動以 exact Release 的 Track Title / Artist / Album / Track Duration 搜 LRCLIB。
+
+4. Lyrics 安全規則：
+   - Exact result 必須通過 Title、Artist、Album、Duration 與版本字眼檢查才自動採用。
+   - Duration 差 > 2.5 秒不會自動採用。
+   - Live / Remix / Remaster / Acoustic / Instrumental / Karaoke / Demo / 重生版等版本標記不一致時不會自動採用。
+   - Exact 不夠可靠時，自動轉 broad search 並顯示候選，由使用者決定。
+   - Manual file lyrics 不會被自動搜尋覆蓋。
+   - Search LRCLIB / Retry 按鈕仍保留供手動重試。
+
+5. 自動 exact lyrics 成功後不會強制跳去 Lyrics 頁，避免打斷 Apple / MusicBrainz Review；Lyrics 已在背景儲存。
