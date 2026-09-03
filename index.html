@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FLAC Review">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>FLAC Metadata Review Mobile v1.0</title>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <div class="eyebrow">READ-ONLY TO FLAC</div>
+      <h1>FLAC Review Mobile</h1>
+    </div>
+    <button id="menuBtn" class="icon-btn" aria-label="開啟選單">☰</button>
+  </header>
+
+  <section class="progress-wrap">
+    <div class="progress-line"><span id="progressText">未載入資料</span><span id="saveState">—</span></div>
+    <div class="progress-bar"><div id="progressFill"></div></div>
+  </section>
+
+  <main id="main" class="main hidden">
+    <section class="track-head card">
+      <div class="track-title-row">
+        <div>
+          <div id="confidenceBadge" class="badge">—</div>
+          <h2 id="trackTitle">—</h2>
+          <div id="trackArtist" class="subtle">—</div>
+        </div>
+        <img id="currentCover" class="cover" alt="封面">
+      </div>
+      <div id="flacSummary" class="summary-grid"></div>
+    </section>
+
+    <nav class="section-tabs" aria-label="Review sections">
+      <button class="section-tab active" data-section="apple">Apple</button>
+      <button class="section-tab" data-section="musicbrainz">MusicBrainz</button>
+      <button class="section-tab" data-section="metadata">Metadata</button>
+      <button class="section-tab" data-section="lyrics">Lyrics</button>
+    </nav>
+
+    <section id="section-apple" class="section active">
+      <div class="section-heading"><h3>Apple A1 / A2 / A3</h3><span class="subtle">v3.4.1 已儲存在 CSV，可離線 Review</span></div>
+      <div id="appleCandidates" class="candidate-list"></div>
+      <div class="action-grid three">
+        <button id="keepBtn" class="secondary">Keep Original</button>
+        <button id="manualBtn" class="secondary">Manual</button>
+        <button id="openAppleBtn" class="secondary">Open Apple</button>
+      </div>
+    </section>
+
+    <section id="section-musicbrainz" class="section">
+      <div class="section-heading">
+        <div><h3>MusicBrainz M1 / M2 / M3</h3><span class="subtle">按需要先查，約每秒最多一次 request</span></div>
+        <button id="mbSearchBtn">Search MusicBrainz</button>
+      </div>
+      <div id="mbStatus" class="status-box">未搜尋</div>
+      <div id="mbCandidates" class="candidate-list"></div>
+    </section>
+
+    <section id="section-metadata" class="section">
+      <div class="section-heading"><h3>Final Metadata</h3><span class="subtle">DATE 預設保留原 FLAC；候選 DATE 只作參考</span></div>
+      <div class="form-grid">
+        <label>Title<input id="finalTitle"></label>
+        <label>Artist<input id="finalArtist"></label>
+        <label>Album<input id="finalAlbum"></label>
+        <label>Album Artist<input id="finalAlbumArtist"></label>
+        <label>Date<input id="finalDate"></label>
+        <label>Track<input id="finalTrack"></label>
+        <label>Disc<input id="finalDisc"></label>
+        <label>Genre<select id="finalGenre"><option>Pop</option><option>Cantopop</option><option>J-Pop</option><option>K-Pop</option><option>Mandopop</option></select></label>
+        <label class="wide">Artwork URL<input id="finalArtwork"></label>
+      </div>
+      <div id="decisionInfo" class="status-box"></div>
+    </section>
+
+    <section id="section-lyrics" class="section">
+      <div class="section-heading">
+        <div><h3>Lyrics</h3><span class="subtle">Synced 優先；Plain 由 Synced 保持同樣分行</span></div>
+        <button id="lyricsSearchBtn">Search LRCLIB</button>
+      </div>
+      <div id="lyricsStatus" class="status-box">未搜尋</div>
+      <div class="lyrics-tabs">
+        <button class="lyrics-tab active" data-lyrics="synced">Synced Lyrics</button>
+        <button class="lyrics-tab" data-lyrics="plain">Plain Lyrics</button>
+      </div>
+      <textarea id="lyricsSynced" class="lyrics-box" spellcheck="false"></textarea>
+      <textarea id="lyricsPlain" class="lyrics-box hidden" spellcheck="false"></textarea>
+      <div class="action-grid two">
+        <label class="file-button secondary">Import .lrc/.txt<input id="lyricsFileInput" type="file" accept=".lrc,.txt,text/plain"></label>
+        <button id="clearLyricsBtn" class="danger-outline">Clear Lyrics</button>
+      </div>
+    </section>
+  </main>
+
+  <footer id="bottomNav" class="bottom-nav hidden">
+    <button id="prevBtn" class="secondary">← Previous</button>
+    <button id="saveNextBtn">Save & Next →</button>
+  </footer>
+
+  <div id="emptyState" class="empty-state">
+    <div class="card onboarding">
+      <h2>FLAC Metadata Review Mobile v1.0</h2>
+      <p>iPhone 只負責 Review，不會接觸或修改 FLAC。先匯入 Apple Music Matcher v3.4.1 CSV。</p>
+      <label class="file-button primary">Import v3.4.1 CSV<input id="matchFileInput" type="file" accept=".csv,text/csv"></label>
+      <label class="file-button secondary">Import Windows Progress（可選）<input id="progressFileInputWelcome" type="file" accept=".csv,text/csv"></label>
+      <p class="note">進度會自動儲存在此 iPhone 的 IndexedDB。之後可 Export Progress 或 Write Plan 帶返 Windows。</p>
+    </div>
+  </div>
+
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head"><h2>歌曲 / 資料</h2><button id="closeDrawerBtn" class="icon-btn">✕</button></div>
+    <div class="drawer-actions">
+      <label class="file-button secondary">Import Matcher CSV<input id="matchFileInputDrawer" type="file" accept=".csv,text/csv"></label>
+      <label class="file-button secondary">Import Progress<input id="progressFileInput" type="file" accept=".csv,text/csv"></label>
+      <button id="exportProgressBtn" class="secondary">Export Progress</button>
+      <button id="exportWritePlanBtn" class="secondary">Export Write Plan</button>
+    </div>
+    <div class="search-row"><input id="searchInput" placeholder="搜尋 Artist / Title / Album"><select id="filterSelect"><option value="ALL">All</option><option value="UNREVIEWED">Unreviewed</option><option value="REVIEWED">Reviewed</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option><option value="NONE">NONE</option></select></div>
+    <div id="trackList" class="track-list"></div>
+    <div class="drawer-note">PWA v1.0：資料只存在本機；請定期 Export Progress 做備份。</div>
+  </aside>
+  <div id="scrim" class="scrim hidden"></div>
+
+  <dialog id="choiceDialog" class="choice-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><h3 id="choiceTitle">選擇結果</h3><button value="cancel" class="icon-btn">✕</button></div>
+      <div id="choiceList" class="choice-list"></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

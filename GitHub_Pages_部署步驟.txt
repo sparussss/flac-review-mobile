@@ -1,0 +1,30 @@
+GitHub Pages 部署（iPhone PWA）
+==============================
+
+建議 Repository 名：
+flac-review-mobile
+
+把 ZIP 內以下檔案全部放在 Repository 根目錄：
+index.html
+styles.css
+app.js
+sw.js
+manifest.webmanifest
+icon-192.png
+icon-512.png
+
+GitHub：
+Settings -> Pages
+Build and deployment -> Deploy from a branch
+Branch -> main
+Folder -> / (root)
+Save
+
+成功後 GitHub 會顯示 HTTPS 網址。
+
+iPhone：
+Safari 開 GitHub Pages 網址
+-> 分享
+-> 加入主畫面
+
+之後從主畫面開啟，就會以接近 App 的 standalone 畫面使用。
