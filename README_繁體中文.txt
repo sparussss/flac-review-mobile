@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.10 PWA
+﻿FLAC Metadata Review Mobile v1.0.11 PWA
 ===================================
 
 用途
@@ -508,3 +508,56 @@ CAA: 5/14 有封面 · MB network 7 · MB detail cache 2
 這版是「分流實驗版」。
 不是把 MusicBrainz 多線並行；
 MusicBrainz 仍然嚴格單線 Queue。
+
+
+v1.0.11：修正 v1.0.10 MusicBrainz 分流錯誤
+-------------------------------------------
+
+修正 1：releaseRows .map is not a function
+------------------------------------------
+v1.0.10 的 Release Group Browse 已經確認 MusicBrainz 回傳：
+j.releases = Array
+
+但程式錯誤地 return 了整個 JSON object j，
+之後 searchMusicBrainz() 對 object 執行 .map()，
+所以 iPhone 出現：
+
+(releaseRows||[]).map is not a function
+
+v1.0.11 已改為：
+return j.releases
+
+另外再加入防守：
+只有真正 Array 才可以進入 .map()。
+即使將來 MusicBrainz response shape 有異常，
+程式亦不會再因為同一原因直接崩潰。
+
+修正 2：進入 MusicBrainz 沒有自動 Find Versions
+------------------------------------------------
+v1.0.10 改寫 searchMusicBrainz() 時，
+意外把 maybeAutoFindMusicBrainz() helper 一起移除了。
+
+因此切入 MusicBrainz tab 時雖然仍有呼叫：
+maybeAutoFindMusicBrainz()
+
+但 function 本身已不存在。
+
+v1.0.11 已完整恢復：
+- 第一次進入 MusicBrainz → 自動 Find Versions
+- 已有完整版本 → 直接顯示 cache，不重搜
+- 正在搜尋 → 不重複開始
+- 搜尋失敗後 60 秒內不會因快速切 tab 而重複轟 MusicBrainz
+- 超過冷卻時間後再進 MusicBrainz，可自動重試
+
+v1.0.10 的分流架構全部保留
+----------------------------
+- MusicBrainz 單線 Queue
+- 約 1.35 秒 request 間隔
+- Release Group Browse
+- CAA 最多 4 路並行檢查 Cover
+- 冇 Cover Version 直接淘汰
+- 只對有 Cover Version 抓 MusicBrainz Detail
+- Release Detail persistent cache
+- CAA cover persistent cache
+- Progressive Version display
+- 503 retry/backoff

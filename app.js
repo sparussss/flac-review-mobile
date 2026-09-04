@@ -234,7 +234,7 @@ function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.10: Review status changes are reflected in the drawer immediately.
+  // v1.0.11: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -254,7 +254,7 @@ async function selectTrack(key){
   state.currentKey=key;
   await metaSet('currentKey',key);
 
-  // v1.0.10: every explicit song change starts from Apple.
+  // v1.0.11: every explicit song change starts from Apple.
   // Covers Previous, drawer selection, Reviewed/Unreviewed selection,
   // and Save & Next via nav().
   switchSection('apple');
@@ -362,7 +362,8 @@ async function mbBrowseReleasesByGroup(releaseGroupId){
   const url=`https://musicbrainz.org/ws/2/release?release-group=${encodeURIComponent(releaseGroupId)}&limit=100&fmt=json`;
   try{
     const j=await mbFetch(url);
-    return Array.isArray(j?.releases)?j:null
+    // v1.0.11: return the actual releases ARRAY, not the response object.
+    return Array.isArray(j?.releases)?j.releases:null
   }catch(e){
     console.warn('Release-group browse failed; fallback to release search',e);
     return null
@@ -728,7 +729,14 @@ async function searchMusicBrainz(options={}){
       releaseQueryNote='RELEASE SEARCH: '+rq
     }
 
-    let baseVersions=(releaseRows||[])
+    // v1.0.11: defensive normalization.
+    // Whether the source came from Browse or Search, only an Array is allowed
+    // to reach .map(). This prevents iOS from failing with ".map is not a function".
+    const releaseArray=Array.isArray(releaseRows)
+      ? releaseRows
+      : (Array.isArray(releaseRows?.releases)?releaseRows.releases:[]);
+
+    let baseVersions=releaseArray
       .map(rel=>releaseSummary(rel,matchedRgid,matchedAlbum,matchedArtist))
       .filter(v=>v.id);
 
@@ -857,7 +865,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(
         `MusicBrainz 暫時繁忙（HTTP 503）。\n\n`+
-        `v1.0.10 已先用 Cover Art Archive 分流，再只對有封面的 Release 排隊讀 MusicBrainz Detail。\n\n`+
+        `v1.0.11 已先用 Cover Art Archive 分流，再只對有封面的 Release 排隊讀 MusicBrainz Detail。\n\n`+
         `已成功載入的完整版本會保留，可以稍後再按 Find Versions / Retry。`
       )
     }else{
@@ -869,6 +877,27 @@ async function searchMusicBrainz(options={}){
   }
 }
 
+async function maybeAutoFindMusicBrainz(){
+  const t=currentTrack();
+  if(!t)return;
+
+  const d=ensureDecision(t),
+        key=t.RelativePath,
+        versions=parseMbVersions(d),
+        status=safe(d.MusicBrainzSearchStatus);
+
+  // Existing complete versions are shown immediately; no repeat request.
+  if(versions.length)return;
+  if(status.startsWith('FOUND_')||status==='NO_COMPLETE_COVER_VERSIONS')return;
+  if(state.mbSearchingKeys.has(key))return;
+
+  // Avoid repeatedly hammering MusicBrainz if the user flips tabs quickly.
+  const last=state.mbAutoAttempt.get(key)||0;
+  if(Date.now()-last<60000)return;
+
+  await searchMusicBrainz({auto:true})
+}
+
 async function useMusicBrainzVersion(releaseId){
   const t=currentTrack(),d=ensureDecision(t);
   const versions=parseMbVersions(d);
@@ -876,7 +905,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.10: details are already loaded. Selection does not make another API call.
+    // v1.0.11: details are already loaded. Selection does not make another API call.
     writeVersionToM1(d,t,v);
     Object.assign(d,{
       Decision:'M1',
@@ -1016,7 +1045,20 @@ function selectedDuration(t,d){if(/^A[123]$/.test(d.Decision)){const p=d.Decisio
 async function exportProgress(){for(const t of state.tracks)ensureDecision(t);const rows=state.tracks.map(t=>state.decisions.get(t.RelativePath));download('FLAC_Review_Decisions_v1.csv',makeCSV(rows,decisionFields));toast('Progress 已匯出')}
 async function exportWritePlan(){const rows=state.tracks.map(t=>{const d=ensureDecision(t),sd=selectedDuration(t,d);return{ReviewStatus:d.Decision?'REVIEWED':'UNREVIEWED',Decision:d.Decision,CandidateRank:d.CandidateRank,Confidence:t.Confidence,FileName:t.FileName,RelativePath:t.RelativePath,FullPath:d.FullPath,OLD_TITLE:t.OLD_TITLE,OLD_ARTIST:t.OLD_ARTIST,OLD_ALBUM:t.OLD_ALBUM,OLD_ALBUMARTIST:t.OLD_ALBUMARTIST,OLD_DATE:t.OLD_DATE,OLD_TRACKNUMBER:t.OLD_TRACKNUMBER,OLD_DISCNUMBER:t.OLD_DISCNUMBER,OLD_GENRE:t.OLD_GENRE,FINAL_TITLE:d.FinalTitle,FINAL_ARTIST:d.FinalArtist,FINAL_ALBUM:d.FinalAlbum,FINAL_ALBUMARTIST:d.FinalAlbumArtist,FINAL_DATE:d.FinalDate,FINAL_TRACKNUMBER:d.FinalTrackNumber,FINAL_DISCNUMBER:d.FinalDiscNumber,FINAL_GENRE:d.FinalGenre,FINAL_ARTWORK_URL:d.FinalArtworkUrl,MetadataSource:d.MetadataSource,ArtworkSource:d.ArtworkSource,SelectedAppleUrl:d.SelectedAppleUrl,SelectedAppleTrackId:d.SelectedAppleTrackId,SelectedMusicBrainzUrl:d.SelectedMusicBrainzUrl,SelectedMusicBrainzRecordingId:d.SelectedMusicBrainzRecordingId,SelectedMusicBrainzReleaseId:d.SelectedMusicBrainzReleaseId,SelectedMusicBrainzReleaseGroupId:d.SelectedMusicBrainzReleaseGroupId,SelectedMusicBrainzISRC:d.SelectedMusicBrainzISRC,CandidateDateReference:d.CandidateDateReference,CandidateDateReferenceType:d.CandidateDateReferenceType,LyricsSource:d.LyricsSource,LyricsEncodingStatus:d.LyricsEncodingStatus,LyricsId:d.LyricsId,LyricsChoice:d.LyricsChoice,LYRICS:d.LyricsPlain,SYNCEDLYRICS:d.LyricsSynced,LyricsMatchedTitle:d.LyricsMatchedTitle,LyricsMatchedArtist:d.LyricsMatchedArtist,LyricsMatchedAlbum:d.LyricsMatchedAlbum,LyricsMatchedDuration:d.LyricsMatchedDuration,LyricsInstrumental:d.LyricsInstrumental,DurationSeconds:t.DurationSeconds,FLAC_DURATION_SEC:t.FLAC_DURATION_SEC,FLAC_TIME:t.FLAC_TIME,SelectedCandidateDurationSec:sd.DurationSec,SelectedCandidateTime:sd.Time,SelectedCandidateDeltaSec:sd.DeltaSec,SelectedCandidateDelta:sd.Delta,SelectedCandidateTimeDiffSec:sd.DiffSec,SelectedCandidateDurationReview:sd.Review,Notes:d.Notes,UpdatedAt:d.UpdatedAt}});const headers=Object.keys(rows[0]||{}),stamp=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download(`FLAC_Write_Plan_${stamp}.csv`,makeCSV(rows,headers));toast('Write Plan 已匯出')}
 
-function switchSection(name){$$('.section-tab').forEach(b=>b.classList.toggle('active',b.dataset.section===name));$$('.section').forEach(s=>s.classList.toggle('active',s.id===`section-${name}`));if(name==='musicbrainz')void maybeAutoFindMusicBrainz()}
+function switchSection(name){
+  $$('.section-tab').forEach(b=>b.classList.toggle('active',b.dataset.section===name));
+  $$('.section').forEach(s=>s.classList.toggle('active',s.id===`section-${name}`));
+  if(name==='musicbrainz'){
+    const t=currentTrack();
+    if(t){
+      const d=ensureDecision(t),versions=parseMbVersions(d);
+      if(!versions.length&&!state.mbSearchingKeys.has(t.RelativePath)){
+        $('#mbStatus').textContent='準備自動 Find Versions…'
+      }
+    }
+    void maybeAutoFindMusicBrainz()
+  }
+}
 function openDrawer(){$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#scrim').classList.remove('hidden');renderTrackList()}
 function closeDrawer(){$('#drawer').classList.remove('open');$('#drawer').setAttribute('aria-hidden','true');$('#scrim').classList.add('hidden')}
 async function nav(delta){
@@ -1069,7 +1111,7 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.10:
+    // v1.0.11:
     // Refresh the active filter immediately, then return to Apple
     // before moving to the next matching song.
     refreshFilteredListKeepCurrent();
