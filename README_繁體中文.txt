@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.9.3 PWA
+﻿FLAC Metadata Review Mobile v1.0.9.4 PWA
 ===================================
 
 用途
@@ -556,3 +556,35 @@ LyricsChoice
 - Reviewed 顯示已選版本及彩色 Duration Review
 - MusicBrainz v1.0.9.1 hotfix
 - v1.0.9 原本較快的 MusicBrainz 流程
+
+
+v1.0.9.4：修正 Reviewed / Lyrics 對錯歌
+---------------------------------------
+修正一個重要狀態同步問題：
+
+舊行為：
+- Save & Next 去到下一首 Unreviewed
+- 打開 Drawer，Filter 改成 Reviewed
+- applyFilter() 會在背景直接把 currentKey 改成第一首 Reviewed
+- 但主畫面仍然顯示原本的 Unreviewed 歌
+- 再按 Reviewed 歌或 Search Lyrics 時，有機會把畫面上的下一首歌資料
+  誤當成 Reviewed 歌的資料
+
+因此可出現：
+- Reviewed 歌的 Lyrics 搜尋結果其實是下一首 Unreviewed
+- 更嚴重時甚至可能把畫面資料寫到錯的 Decision
+
+v1.0.9.4 修正：
+1. Filter 只篩選 Drawer 清單，不再偷偷切換 current song。
+2. 只有真的點選一首歌時才更改 currentKey。
+3. PWA 記錄 renderedKey，只有畫面和 currentKey 是同一首時才可保存表單。
+4. LRCLIB 搜尋結果綁定歌曲 RelativePath。
+5. 背景舊 Lyrics request 完成後，如果使用者已切到另一首歌，
+   不會再彈出或覆蓋另一首歌的 Lyrics 結果。
+6. LRCLIB 結果標題會顯示目標歌曲名稱，方便肉眼確認。
+
+其他 v1.0.9.3 功能全部保留：
+- Plain Lyrics only
+- Synced 只作分行來源，timestamp 不保存
+- Previous | Next | Save & Next
+- v1.0.9 原本較快 MusicBrainz 流程

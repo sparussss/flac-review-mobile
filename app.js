@@ -3,7 +3,7 @@ const DB_VERSION=1;
 const VALID_GENRES=['Pop','Cantopop','J-Pop','K-Pop','Mandopop'];
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const state={tracks:[],decisions:new Map(),currentKey:null,filtered:[],db:null,saveTimer:null,mbLast:0,releaseCache:new Map(),mbJsonCache:new Map(),mbSearchingKeys:new Set(),mbAutoAttempt:new Map(),lyricsSearchingKeys:new Set()};
+const state={tracks:[],decisions:new Map(),currentKey:null,renderedKey:null,filtered:[],db:null,saveTimer:null,mbLast:0,releaseCache:new Map(),mbJsonCache:new Map(),mbSearchingKeys:new Set(),mbAutoAttempt:new Map(),lyricsSearchingKeys:new Set(),lyricsSearchTokens:new Map()};
 
 function toast(msg,ms=2200){const el=$('#toast');el.textContent=msg;el.classList.remove('hidden');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.add('hidden'),ms)}
 function safe(v){return v==null?'':String(v)}
@@ -53,7 +53,7 @@ function migrateLyricsToPlainOnly(d){
     const normalized=normalizeSynced(synced);
     d.LyricsPlain=normalized?plainFromSynced(normalized):''
   }
-  // v1.0.9.3: timestamped lyrics are no longer kept anywhere in Review data.
+  // v1.0.9.4: timestamped lyrics are no longer kept anywhere in Review data.
   d.LyricsSynced='';
   if(d.LyricsChoice==='SYNCED'||d.LyricsChoice==='BOTH'){
     d.LyricsChoice=d.LyricsPlain?'PLAIN_FROM_SYNCED':''
@@ -112,10 +112,12 @@ function refreshFilteredListKeepCurrent(){
 }
 function applyFilter(){
   rebuildFiltered();
-  if(state.filtered.length&&!state.filtered.some(t=>t.RelativePath===state.currentKey)){
-    state.currentKey=state.filtered[0].RelativePath;
-    metaSet('currentKey',state.currentKey)
-  }
+
+  // v1.0.9.4:
+  // Changing Unreviewed / Reviewed / confidence filter only changes the drawer list.
+  // It must NEVER silently change currentKey, otherwise the main form can still
+  // display Song B while currentKey already points to Song A, causing Song B's
+  // metadata / lyrics to be written into Song A.
   renderTrackList();
   updateProgress();
   updateNavButtons()
@@ -228,11 +230,11 @@ function appleCandidate(t,r){const p=`A${r}_`,title=t[p+'TITLE'];if(!title)retur
 function mbCandidate(d,r){const p=`M${r}_`,title=d[p+'TITLE'];if(!title)return null;return{rank:`M${r}`,source:'MusicBrainz',score:d[p+'SCORE'],country:d[p+'COUNTRY'],title,artist:d[p+'ARTIST'],album:d[p+'ALBUM'],albumArtist:d[p+'ALBUMARTIST'],date:d[p+'DATE'],track:d[p+'TRACKNUMBER'],disc:d[p+'DISCNUMBER'],url:d[p+'URL'],art:d[p+'ARTWORK_PREVIEW']||d[p+'ARTWORK'],artFinal:d[p+'ARTWORK'],time:d[p+'TIME'],delta:d[p+'TIME_DELTA'],durationReview:d[p+'DURATION_REVIEW'],durationSec:d[p+'DURATION_SEC'],recordingId:d[p+'RECORDING_ID'],releaseId:d[p+'RELEASE_ID'],releaseGroupId:d[p+'RELEASE_GROUP_ID'],isrc:d[p+'ISRC']}}
 function candidateHTML(c,selected){const cls=c.durationReview||'UNKNOWN',art=c.art?candidateImage(c.art):'';return `<article class="candidate ${selected===c.rank?'selected':''} ${art?'':'no-cover'}">${art}<div><div class="candidate-top"><span class="candidate-rank">${esc(c.rank)} · ${esc(c.source)}</span><span class="candidate-score">Score ${esc(c.score)} · ${esc(c.country)}</span></div><div class="candidate-title">${esc(c.title)}</div><div class="candidate-meta">${esc(c.artist)}<br>${esc(c.album)}<br>${esc(c.date)} · Track ${esc(c.track||'—')} / Disc ${esc(c.disc||'—')}</div><div class="duration-row"><span class="pill">${esc(c.time||'Time —')}</span><span class="pill">Δ ${esc(c.delta||'—')}</span><span class="pill ${esc(cls)}">${esc(cls)}</span></div><div class="candidate-actions"><button data-use="${esc(c.rank)}">Use ${esc(c.rank)}</button>${c.url?`<button class="secondary" data-open="${esc(c.url)}">Open</button>`:'<button class="secondary" disabled>No Link</button>'}</div></div></article>`}
 
-function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t)return;const d=ensureDecision(t);$('#confidenceBadge').textContent=t.Confidence||'—';$('#confidenceBadge').className=`badge ${t.Confidence||''}`;$('#trackTitle').textContent=t.OLD_TITLE;$('#trackArtist').textContent=t.OLD_ARTIST;$('#flacSummary').innerHTML=compactFlacSummary(t);
+function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t)return;state.renderedKey=t.RelativePath;const d=ensureDecision(t);$('#confidenceBadge').textContent=t.Confidence||'—';$('#confidenceBadge').className=`badge ${t.Confidence||''}`;$('#trackTitle').textContent=t.OLD_TITLE;$('#trackArtist').textContent=t.OLD_ARTIST;$('#flacSummary').innerHTML=compactFlacSummary(t);
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.9.3: Review status changes are reflected in the drawer immediately.
+  // v1.0.9.4: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -244,16 +246,25 @@ function setCurrentCover(d,t){let u=d.FinalArtworkUrl||t.A1_ARTWORK_3000||'';$('
 function bindCandidateButtons(){$$('[data-use]').forEach(b=>b.onclick=()=>applyCandidate(b.dataset.use));$$('[data-open]').forEach(b=>b.onclick=()=>window.open(b.dataset.open,'_blank'))}
 async function selectTrack(key){
   const old=currentTrack();
-  if(old){
+
+  // v1.0.9.4 safety guard:
+  // only read the visible form into a decision when the visible form really
+  // belongs to that same song.
+  if(old&&state.renderedKey===old.RelativePath){
     const od=ensureDecision(old);
     readFormIntoDecision(od);
     await saveDecision(od)
   }
+
+  // Close any LRCLIB choices belonging to another song.
+  const dlg=$('#choiceDialog');
+  if(dlg?.open&&dlg.dataset.targetKey&&dlg.dataset.targetKey!==key)dlg.close();
+
   state.currentKey=key;
   await metaSet('currentKey',key);
 
-  // v1.0.9.3: every explicit song change starts from Apple.
-  // Covers Previous, drawer selection, Reviewed/Unreviewed selection,
+  // every explicit song change starts from Apple.
+  // Covers Previous, Next, drawer selection, Reviewed/Unreviewed selection,
   // and Save & Next via nav().
   switchSection('apple');
   renderAll();
@@ -646,7 +657,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.9.3 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.9.4 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -714,7 +725,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.9.3 hotfix:
+    // v1.0.9.4 hotfix:
     // Write the selected MusicBrainz Version directly into M1 here.
     // Do not depend on a separate writeVersionToM1() symbol, because an
     // older cached app.js could otherwise produce Safari's
@@ -854,6 +865,9 @@ async function autoSearchLyricsAfterSelection(key){
 async function searchLyrics(options={}){
   const key=options.targetKey||state.currentKey,t=lyricsTargetTrack(key);if(!t)return;
   if(state.lyricsSearchingKeys.has(key))return;
+  const token=`${Date.now()}-${Math.random()}`;
+  state.lyricsSearchTokens.set(key,token);
+  const isLatest=()=>state.lyricsSearchTokens.get(key)===token;
   const d=ensureDecision(t),auto=!!options.auto;
   if(auto&&d.LyricsSource&&!safe(d.LyricsSource).startsWith('LRCLIB'))return;
   if(!auto&&currentTrack()?.RelativePath===key)readFormIntoDecision(d);
@@ -873,8 +887,9 @@ async function searchLyrics(options={}){
       exact=await res.json();
       const chk=strictLyricsMatch(exact,title,artist,album,dur);
       if(chk.ok){
+        if(!isLatest())return;
         await useLyricsResult(exact,'LRCLIB exact',{targetKey:key,signature,switchToLyrics:!auto});
-        toast(auto?'Lyrics 已自動配對':'LRCLIB exact match');
+        if(state.currentKey===key)toast(auto?'Lyrics 已自動配對':'LRCLIB exact match');
         return
       }
       console.warn('LRCLIB exact rejected by strict validation',chk,exact)
@@ -885,29 +900,49 @@ async function searchLyrics(options={}){
     let results=await res.json();
     if(exact&&exact.id&&!results.some(x=>safe(x.id)===safe(exact.id)))results=[exact,...results];
     if(!results.length){
+      if(!isLatest())return;
       d.LyricsAutoSignature=signature;d.LyricsSearchStatus='NOT_FOUND';d.LyricsSearchAt=now();await saveDecision(d);
-      if(currentTrack()?.RelativePath===key)$('#lyricsStatus').textContent='No lyrics found';
-      toast('LRCLIB 沒有結果');return
+      if(currentTrack()?.RelativePath===key){$('#lyricsStatus').textContent='No lyrics found';toast('LRCLIB 沒有結果')}
+      return
     }
+    if(!isLatest())return;
     d.LyricsAutoSignature=signature;d.LyricsSearchStatus='CHOICES';d.LyricsSearchAt=now();await saveDecision(d);
-    showLyricsChoices(results,{targetKey:key,signature})
+    if(state.currentKey===key)showLyricsChoices(results,{targetKey:key,signature})
   }catch(e){
-    console.error(e);d.LyricsSearchStatus='ERROR';d.LyricsSearchAt=now();await saveDecision(d);
-    if(currentTrack()?.RelativePath===key)$('#lyricsStatus').textContent='Lyrics request error';
-    if(auto)toast(`Lyrics 自動搜尋失敗：${e.message}`,3000);else alert(`LRCLIB request failed:\n${e.message}`)
+    console.error(e);
+    if(isLatest()){
+      d.LyricsSearchStatus='ERROR';d.LyricsSearchAt=now();await saveDecision(d);
+      if(currentTrack()?.RelativePath===key){
+        $('#lyricsStatus').textContent='Lyrics request error';
+        if(auto)toast(`Lyrics 自動搜尋失敗：${e.message}`,3000);else alert(`LRCLIB request failed:\n${e.message}`)
+      }
+    }
   }finally{
     state.lyricsSearchingKeys.delete(key);
+    if(isLatest())state.lyricsSearchTokens.delete(key);
     if(currentTrack()?.RelativePath===key)$('#lyricsSearchBtn').disabled=false
   }
 }
 function showLyricsChoices(results,options={}){
   const key=options.targetKey||state.currentKey,t=lyricsTargetTrack(key);if(!t)return;
+
+  // Never let a completed background search from another song replace
+  // the LRCLIB result dialog for the song currently being reviewed.
+  if(state.currentKey!==key)return;
+
   const d=ensureDecision(t),flac=selectedLyricsDuration(t,d),wantedTitle=d.FinalTitle||t.OLD_TITLE,wantedArtist=d.FinalArtist||t.OLD_ARTIST,wantedAlbum=d.FinalAlbum||t.OLD_ALBUM;
   results=[...results].sort((a,b)=>{const score=r=>{const dur=num(r.duration),diff=flac&&dur?Math.abs(dur-flac):20,versionOK=lyricsVersionTokens(wantedTitle)===lyricsVersionTokens(r.trackName||r.name);return similarity(wantedTitle,r.trackName||r.name)*45+similarity(wantedArtist,r.artistName)*25+similarity(wantedAlbum,r.albumName)*15+Math.max(0,15-Math.min(15,diff*3))+(versionOK?8:-20)};return score(b)-score(a)});
-  $('#choiceTitle').textContent='選擇 LRCLIB 結果';
+  $('#choiceTitle').textContent=`選擇 LRCLIB 結果 · ${t.OLD_TITLE}`;
   $('#choiceList').innerHTML=results.slice(0,20).map((r,i)=>{const dur=num(r.duration),diff=flac&&dur?Math.abs(dur-flac):0,chk=strictLyricsMatch(r,wantedTitle,wantedArtist,wantedAlbum,flac);return `<div class="choice-item"><b>${esc(r.trackName||r.name)}</b><br>${esc(r.artistName)}<br><span class="subtle">${esc(r.albumName)} · ${dur?fmtTime(dur):'—'} ${flac&&dur?`· Δ ${fmtDelta(dur-flac)} · ${durationReview(diff)}`:''}${chk.ok?' · STRICT':''}</span><button type="button" data-lyrics-index="${i}">Use this lyrics</button></div>`}).join('');
-  $('#choiceDialog').showModal();
-  $$('[data-lyrics-index]').forEach(b=>b.onclick=async()=>{await useLyricsResult(results[Number(b.dataset.lyricsIndex)],'LRCLIB search',{targetKey:key,signature:options.signature,switchToLyrics:true});$('#choiceDialog').close()})
+  const dlg=$('#choiceDialog');
+  dlg.dataset.targetKey=key;
+  if(!dlg.open)dlg.showModal();
+  $$('[data-lyrics-index]').forEach(b=>b.onclick=async()=>{
+    // If user changed song while the dialog was open, do nothing.
+    if(state.currentKey!==key){dlg.close();return}
+    await useLyricsResult(results[Number(b.dataset.lyricsIndex)],'LRCLIB search',{targetKey:key,signature:options.signature,switchToLyrics:true});
+    dlg.close()
+  })
 }
 
 function selectedDuration(t,d){if(/^A[123]$/.test(d.Decision)){const p=d.Decision+'_';return{DurationSec:t[p+'DURATION_SEC'],Time:t[p+'TIME'],DeltaSec:t[p+'TIME_DELTA_SEC'],Delta:t[p+'TIME_DELTA'],DiffSec:t[p+'TIME_DIFF_SEC'],Review:t[p+'DURATION_REVIEW']}}if(/^M[123]$/.test(d.Decision)){const p=d.Decision+'_';return{DurationSec:d[p+'DURATION_SEC'],Time:d[p+'TIME'],DeltaSec:d[p+'TIME_DELTA_SEC'],Delta:d[p+'TIME_DELTA'],DiffSec:d[p+'TIME_DIFF_SEC'],Review:d[p+'DURATION_REVIEW']}}return{DurationSec:'',Time:'',DeltaSec:'',Delta:'',DiffSec:'',Review:''}}
@@ -968,7 +1003,7 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.9.3:
+    // v1.0.9.4:
     // Refresh the active filter immediately, then return to Apple
     // before moving to the next matching song.
     refreshFilteredListKeepCurrent();
