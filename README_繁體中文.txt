@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.9 PWA
+﻿FLAC Metadata Review Mobile v1.0.10 PWA
 ===================================
 
 用途
@@ -429,3 +429,82 @@ Confidence / Decision / Title / Artist
 優先重新檢查。
 
 KEEP / MANUAL 沒有 candidate duration 時不會硬加 Duration Review。
+
+
+v1.0.10：MusicBrainz 分流實驗版
+--------------------------------
+本版保持 v1.0.9 的 UI / Review 操作不變，
+只修改 MusicBrainz / Cover Art Archive 的底層抓取流程。
+
+目的
+----
+減少 MusicBrainz request 數量，
+降低由 PWA 自己造成 HTTP 503 / rate-limit 的機會，
+同時讓 iPhone 感覺更快。
+
+新的 4 Step 流程
+-----------------
+Step 1 — MusicBrainz Recording / Album
+- MusicBrainz 保持單線 Queue
+- 每次 MusicBrainz network request 最少約 1.35 秒間隔
+- 先確認 Recording / Album / Release Group
+
+Step 2 — Release Group Versions
+- 如果有 Release Group MBID，優先用 MusicBrainz Browse endpoint
+  一次列出該 Release Group 的 Releases
+- Browse 失敗才 fallback 到原來 Release Search
+
+Step 3 — Cover Art Archive 分流
+- 不再逐個 Release 先讀 MusicBrainz Detail 再判斷有沒有 Cover
+- 改為直接由 Cover Art Archive 檢查 Front Cover
+- 最多 4 個 CAA image check 並行
+- CAA request 不會佔 MusicBrainz 的 1 request/sec quota
+- 沒有 Front Cover 的 Release 直接淘汰
+
+Step 4 — MusicBrainz Detail
+- 只對 Step 3 已確認「有 Front Cover」的 Release
+  逐個排隊讀 MusicBrainz Detail
+- 取得 Track / Disc / Duration / Δ Time / ISRC / Catalog / Barcode
+- 完成一個 Version 就立即顯示，不用等全部完成
+
+Cache
+-----
+1. MusicBrainz Release Detail
+- 先用記憶體 cache
+- 再用 IndexedDB persistent cache
+- 有效約 30 天
+- 同一 Release 之後再遇到，可減少 MusicBrainz network request
+
+2. Cover Art Archive Front Cover
+- 有 Cover：cache 約 30 天
+- 沒有 Cover：cache 約 3 天
+  （避免永遠錯過日後新上傳的封面）
+
+503
+---
+v1.0.10 仍不能保證 MusicBrainz 永遠不出 503，
+因為 MusicBrainz 全站繁忙時仍可能 throttling。
+
+但相比 v1.0.9：
+- MusicBrainz Detail request 應明顯減少
+- 沒 Cover 的 Release 不再消耗 MusicBrainz Detail request
+- CAA 可以與 MusicBrainz 分開處理
+- Retry backoff 稍為加強：約 3.5s → 7s → 14s
+
+測試建議
+--------
+用同一首有多個國家版本的歌曲比較 v1.0.9 / v1.0.10。
+
+MusicBrainz Status 完成後會顯示例如：
+CAA: 5/14 有封面 · MB network 7 · MB detail cache 2
+
+最值得比較：
+- Find Versions 完成時間
+- MB network request 數量
+- 是否較少出 HTTP 503
+- Version 卡是否仍逐個即時出現
+
+注意：
+這版是「分流實驗版」。
+不是把 MusicBrainz 多線並行；
+MusicBrainz 仍然嚴格單線 Queue。
