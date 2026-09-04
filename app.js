@@ -135,7 +135,7 @@ function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.7: Review status changes are reflected in the drawer immediately.
+  // v1.0.8: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -533,7 +533,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.7 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.8 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -601,7 +601,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.7: details are already loaded. Selection does not make another API call.
+    // v1.0.8: details are already loaded. Selection does not make another API call.
     writeVersionToM1(d,t,v);
     Object.assign(d,{
       Decision:'M1',
@@ -794,11 +794,11 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.7:
-    // Unreviewed -> completed song disappears immediately.
-    // Reviewed   -> completed song is immediately available in that filter.
-    // Search text / Confidence filter are preserved.
+    // v1.0.8:
+    // Refresh the active filter immediately, then return to Apple
+    // before moving to the next matching song.
     refreshFilteredListKeepCurrent();
+    switchSection('apple');
     await nav(1)
   };
 }

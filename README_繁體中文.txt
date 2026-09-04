@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.7 PWA
+﻿FLAC Metadata Review Mobile v1.0.8 PWA
 ===================================
 
 用途
@@ -369,3 +369,22 @@ v1.0.7：iPhone Review 畫面空間優化
 
 這一版只改 UI / layout，不改 Apple、MusicBrainz、LRCLIB、Review decision
 及 Export Progress / Write Plan 邏輯。
+
+
+v1.0.8：Save & Next 自動返回 Apple
+----------------------------------
+按 Save & Next 後：
+
+1. 儲存目前 Review
+2. 即時更新 Unreviewed / Reviewed 清單
+3. 自動切回 Apple 頁面
+4. 再前往目前 Filter 的下一首歌曲
+
+這樣如果上一首停留在 MusicBrainz / Metadata / Lyrics，
+下一首都會先從 Apple A1 / A2 / A3 開始 Review。
+
+另外，如果上一首停留在 MusicBrainz，
+下一首不會因為仍在 MusicBrainz 頁而立即自動 Find Versions，
+可減少不必要的 MusicBrainz request。
+
+Previous 按鍵不受影響；只有 Save & Next 會自動返回 Apple。
