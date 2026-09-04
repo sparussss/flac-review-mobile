@@ -106,7 +106,89 @@ function applyFilter(){
   updateNavButtons()
 }
 function updateProgress(){const total=state.tracks.length,done=state.tracks.filter(t=>!!ensureDecision(t).Decision).length;$('#progressText').textContent=total?`${done} / ${total} · ${Math.round(done/total*100)}% Reviewed`:'未載入資料';$('#progressFill').style.width=total?`${done/total*100}%`:'0%'}
-function renderTrackList(){const box=$('#trackList');if(!box)return;box.innerHTML=state.filtered.map(t=>{const d=ensureDecision(t),s=d.Decision||'—';return `<div class="track-item ${t.RelativePath===state.currentKey?'current':''}" data-key="${esc(t.RelativePath)}"><div class="track-status">${esc(t.Confidence)}<br>${esc(s)}</div><div class="track-copy"><b>${esc(t.OLD_TITLE)}</b>${esc(t.OLD_ARTIST)}</div></div>`}).join('');box.querySelectorAll('.track-item').forEach(el=>el.onclick=()=>{selectTrack(el.dataset.key);closeDrawer()})}
+function selectedReviewInfo(t,d){
+  const decision=safe(d.Decision).toUpperCase();
+  let source='',country='',album='',review='',time='',delta='';
+
+  if(/^A[123]$/.test(decision)){
+    const c=appleCandidate(t,Number(decision[1]));
+    if(c){
+      source='Apple';
+      country=safe(c.country);
+      album=safe(c.album);
+      review=safe(c.durationReview).toUpperCase();
+      time=safe(c.time);
+      delta=safe(c.delta)
+    }
+  }else if(/^M[123]$/.test(decision)){
+    const c=mbCandidate(d,Number(decision[1]));
+    if(c){
+      source='MusicBrainz';
+      country=safe(c.country);
+      album=safe(c.album);
+      review=safe(c.durationReview).toUpperCase();
+      time=safe(c.time);
+      delta=safe(c.delta)
+    }
+  }else if(decision==='KEEP'){
+    source='Keep Original';
+    album=safe(t.OLD_ALBUM)
+  }else if(decision==='MANUAL'){
+    source='Manual';
+    album=safe(d.FinalAlbum||t.OLD_ALBUM)
+  }
+
+  return {decision,source,country,album,review,time,delta}
+}
+function reviewedChoiceHTML(t,d){
+  const x=selectedReviewInfo(t,d);
+  if(!x.decision)return '';
+
+  const sourceLine=[
+    x.decision,
+    x.source,
+    x.country
+  ].filter(Boolean).join(' · ');
+
+  const validReview=['EXCELLENT','GOOD','CHECK','WARNING','MISMATCH'].includes(x.review);
+  const durationBits=[
+    x.time ? x.time : '',
+    x.delta ? `Δ ${x.delta}` : ''
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="reviewed-choice">
+    <div class="reviewed-choice-top">
+      <span class="reviewed-version">${esc(sourceLine||x.decision)}</span>
+      ${validReview?`<span class="reviewed-duration-badge ${esc(x.review)}">${esc(x.review)}</span>`:''}
+    </div>
+    ${x.album?`<div class="reviewed-album">${esc(x.album)}</div>`:''}
+    ${durationBits?`<div class="reviewed-duration-detail">${esc(durationBits)}</div>`:''}
+  </div>`
+}
+
+function renderTrackList(){
+  const box=$('#trackList');
+  if(!box)return;
+  const showReviewedInfo=($('#filterSelect')?.value||'ALL')==='REVIEWED';
+
+  box.innerHTML=state.filtered.map(t=>{
+    const d=ensureDecision(t),s=d.Decision||'—';
+    const extra=showReviewedInfo&&d.Decision?reviewedChoiceHTML(t,d):'';
+    return `<div class="track-item ${t.RelativePath===state.currentKey?'current':''}" data-key="${esc(t.RelativePath)}">
+      <div class="track-status">${esc(t.Confidence)}<br>${esc(s)}</div>
+      <div class="track-copy">
+        <b>${esc(t.OLD_TITLE)}</b>
+        <span class="track-artist">${esc(t.OLD_ARTIST)}</span>
+        ${extra}
+      </div>
+    </div>`
+  }).join('');
+
+  box.querySelectorAll('.track-item').forEach(el=>el.onclick=async()=>{
+    await selectTrack(el.dataset.key);
+    closeDrawer()
+  })
+}
 function summaryItem(k,v){return `<div><b>${esc(k)}</b>${esc(v||'—')}</div>`}
 function compactFlacSummary(t){
   const time=t.FLAC_TIME||fmtTime(t.DurationSeconds);
@@ -135,7 +217,7 @@ function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.8: Review status changes are reflected in the drawer immediately.
+  // v1.0.9: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -145,7 +227,23 @@ function renderDecisionInfo(d){$('#decisionInfo').textContent=`Decision: ${d.Dec
 function renderLyrics(d){$('#lyricsSynced').value=d.LyricsSynced||'';$('#lyricsPlain').value=d.LyricsPlain||'';$('#lyricsStatus').textContent=d.LyricsSource?`Source: ${d.LyricsSource} · ID: ${d.LyricsId||'—'} · Mode: ${d.LyricsChoice||'—'}\nMatched: ${d.LyricsMatchedTitle||'—'} / ${d.LyricsMatchedArtist||'—'} / ${d.LyricsMatchedAlbum||'—'} / ${d.LyricsMatchedDuration||'—'}s`:'未搜尋'}
 function setCurrentCover(d,t){let u=d.FinalArtworkUrl||t.A1_ARTWORK_3000||'';$('#currentCover').src=u?u.replace('/3000x3000bb.jpg','/300x300bb.jpg').replace('/front','/front-250'):'';$('#currentCover').style.visibility=u?'visible':'hidden'}
 function bindCandidateButtons(){$$('[data-use]').forEach(b=>b.onclick=()=>applyCandidate(b.dataset.use));$$('[data-open]').forEach(b=>b.onclick=()=>window.open(b.dataset.open,'_blank'))}
-async function selectTrack(key){const old=currentTrack();if(old){const od=ensureDecision(old);readFormIntoDecision(od);await saveDecision(od)}state.currentKey=key;await metaSet('currentKey',key);renderAll();window.scrollTo({top:0,behavior:'smooth'});if($('.section-tab.active')?.dataset.section==='musicbrainz')void maybeAutoFindMusicBrainz()}
+async function selectTrack(key){
+  const old=currentTrack();
+  if(old){
+    const od=ensureDecision(old);
+    readFormIntoDecision(od);
+    await saveDecision(od)
+  }
+  state.currentKey=key;
+  await metaSet('currentKey',key);
+
+  // v1.0.9: every explicit song change starts from Apple.
+  // Covers Previous, drawer selection, Reviewed/Unreviewed selection,
+  // and Save & Next via nav().
+  switchSection('apple');
+  renderAll();
+  window.scrollTo({top:0,behavior:'smooth'})
+}
 
 async function applyCandidate(rank){const t=currentTrack(),d=ensureDecision(t);if(rank.startsWith('A')){const c=appleCandidate(t,Number(rank[1]));if(!c)return;Object.assign(d,{Decision:rank,CandidateRank:rank,MetadataSource:'APPLE',ArtworkSource:'APPLE',FinalTitle:c.title,FinalArtist:c.artist,FinalAlbum:c.album,CandidateDateReference:c.date,CandidateDateReferenceType:'Apple track releaseDate reference',FinalArtworkUrl:c.art,SelectedAppleUrl:c.url,SelectedAppleTrackId:c.trackId,SelectedMusicBrainzUrl:'',SelectedMusicBrainzRecordingId:'',SelectedMusicBrainzReleaseId:'',SelectedMusicBrainzReleaseGroupId:'',SelectedMusicBrainzISRC:''});if(!d.FinalAlbumArtist)d.FinalAlbumArtist=d.FinalArtist;if(c.track)d.FinalTrackNumber=c.track;if(c.disc)d.FinalDiscNumber=c.disc}
   else{const c=mbCandidate(d,Number(rank[1]));if(!c)return;Object.assign(d,{Decision:rank,CandidateRank:rank,MetadataSource:'MUSICBRAINZ',FinalTitle:c.title,FinalArtist:c.artist,FinalAlbum:c.album,CandidateDateReference:c.date,CandidateDateReferenceType:'MusicBrainz release date reference',SelectedMusicBrainzUrl:c.url,SelectedMusicBrainzRecordingId:c.recordingId,SelectedMusicBrainzReleaseId:c.releaseId,SelectedMusicBrainzReleaseGroupId:c.releaseGroupId,SelectedMusicBrainzISRC:c.isrc,SelectedAppleUrl:'',SelectedAppleTrackId:''});if(c.albumArtist)d.FinalAlbumArtist=c.albumArtist;else if(!d.FinalAlbumArtist)d.FinalAlbumArtist=d.FinalArtist;if(c.track)d.FinalTrackNumber=c.track;if(c.disc)d.FinalDiscNumber=c.disc;if(c.artFinal){d.FinalArtworkUrl=c.artFinal;d.ArtworkSource='COVER_ART_ARCHIVE'}else{d.FinalArtworkUrl='';d.ArtworkSource='ORIGINAL'}}
@@ -533,7 +631,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.8 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.9 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -601,7 +699,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.8: details are already loaded. Selection does not make another API call.
+    // v1.0.9: details are already loaded. Selection does not make another API call.
     writeVersionToM1(d,t,v);
     Object.assign(d,{
       Decision:'M1',
@@ -794,7 +892,7 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.8:
+    // v1.0.9:
     // Refresh the active filter immediately, then return to Apple
     // before moving to the next matching song.
     refreshFilteredListKeepCurrent();

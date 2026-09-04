@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.8 PWA
+﻿FLAC Metadata Review Mobile v1.0.9 PWA
 ===================================
 
 用途
@@ -388,3 +388,44 @@ v1.0.8：Save & Next 自動返回 Apple
 可減少不必要的 MusicBrainz request。
 
 Previous 按鍵不受影響；只有 Save & Next 會自動返回 Apple。
+
+
+v1.0.9：換歌回 Apple + Reviewed 顯示已選版本
+--------------------------------------------
+
+1. Previous / Drawer 換歌都回 Apple
+-----------------------------------
+現在任何「切換到另一首歌曲」的操作都會先切回 Apple：
+
+- Previous
+- Save & Next
+- Unreviewed 清單選另一首
+- Reviewed 清單選另一首
+- All / HIGH / MEDIUM / LOW / NONE 清單選另一首
+
+所以重新打開另一首歌時，一律由 Apple A1 / A2 / A3 開始看。
+
+2. Reviewed 顯示已選版本 + Duration Review
+-----------------------------------------
+當 Filter = Reviewed，歌曲清單除原來：
+Confidence / Decision / Title / Artist
+
+再顯示：
+- 已選版本，例如：
+  A2 · Apple · GB
+  M1 · MusicBrainz · JP
+- 已選 Album
+- 已選 Version Time
+- Δ Time
+- Duration Review 彩色標籤
+
+顏色沿用主 Review 畫面：
+- EXCELLENT / GOOD = 綠色
+- CHECK / WARNING = 黃色
+- MISMATCH = 紅色
+
+這樣重新審視 Reviewed 歌曲時，可以先從 Drawer 看出：
+哪一些歌曲選的是 CHECK / WARNING / MISMATCH，
+優先重新檢查。
+
+KEEP / MANUAL 沒有 candidate duration 時不會硬加 Duration Review。

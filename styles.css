@@ -364,3 +364,72 @@
     font-size:11px;
   }
 }
+
+
+/* =========================================================
+   v1.0.9 — Reviewed drawer selected-version information
+   ========================================================= */
+.track-item .track-copy .track-artist{
+  display:block;
+  color:var(--ink);
+  line-height:1.25;
+}
+.reviewed-choice{
+  margin-top:5px;
+  padding-top:5px;
+  border-top:1px dashed #d8dee8;
+  min-width:0;
+}
+.reviewed-choice-top{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  min-width:0;
+}
+.reviewed-version{
+  min-width:0;
+  flex:1 1 auto;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  color:#475569;
+  font-size:10.5px;
+  font-weight:800;
+}
+.reviewed-duration-badge{
+  flex:0 0 auto;
+  border-radius:999px;
+  padding:2px 6px;
+  font-size:9px;
+  line-height:1.35;
+  font-weight:900;
+}
+.reviewed-duration-badge.EXCELLENT,
+.reviewed-duration-badge.GOOD{
+  background:#d1fadf;
+  color:#05603a;
+}
+.reviewed-duration-badge.CHECK,
+.reviewed-duration-badge.WARNING{
+  background:#fef0c7;
+  color:#93370d;
+}
+.reviewed-duration-badge.MISMATCH{
+  background:#fee4e2;
+  color:#912018;
+}
+.reviewed-album{
+  margin-top:2px;
+  color:#64748b;
+  font-size:10px;
+  line-height:1.25;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.reviewed-duration-detail{
+  margin-top:2px;
+  color:#64748b;
+  font-size:9.5px;
+  line-height:1.2;
+}
