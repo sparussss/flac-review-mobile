@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.9.4 PWA
+﻿FLAC Metadata Review Mobile v1.0.9.5 PWA
 ===================================
 
 用途
@@ -588,3 +588,36 @@ v1.0.9.4 修正：
 - Synced 只作分行來源，timestamp 不保存
 - Previous | Next | Save & Next
 - v1.0.9 原本較快 MusicBrainz 流程
+
+
+v1.0.9.5：修正 Plain Lyrics 每行開頭多一格
+------------------------------------------
+LRCLIB 的 syncedLyrics 常見格式：
+
+[00:12.34] Don't start to fumble it up
+[00:16.80] Just do it
+
+舊版移除 timestamp 後會變成：
+
+ Don't start to fumble it up
+ Just do it
+
+v1.0.9.5 改為：
+
+Don't start to fumble it up
+Just do it
+
+處理方式：
+- 移除 timestamp
+- 再移除每行最前面的空格 / Tab
+- 同時清除行尾多餘空格 / Tab
+- 保留原本逐句換行
+- 保留空白行
+- 不保存任何時間軸
+
+舊 Progress 修正：
+- 如果 v1.0.9.3 / v1.0.9.4 已經保存 PLAIN_FROM_SYNCED，
+  升級到 v1.0.9.5 後會自動把每行開頭多餘空格清走，
+  不需要重新搜尋 Lyrics。
+
+其他 v1.0.9.4 功能全部保留。
