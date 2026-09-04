@@ -30,11 +30,11 @@ Safari 開 GitHub Pages 網址
 之後從主畫面開啟，就會以接近 App 的 standalone 畫面使用。
 
 
-v1.0.9.1 更新後
+v1.0.9.2 更新後
 ---------------
 因為這版特別修正 Safari / Service Worker 混合 cache，
 GitHub Pages 部署完成後：
 
 1. Safari 開啟 PWA 網址並重新整理一次。
-2. 確認最頂部顯示 PWA v1.0.9.1。
+2. 確認最頂部顯示 PWA v1.0.9.2。
 3. 如從主畫面開啟，完全關閉舊 PWA 再重新開啟一次。

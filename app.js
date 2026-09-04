@@ -87,6 +87,7 @@ function updateNavButtons(){
   const hasPrev=gi>0&&state.tracks.slice(0,gi).some(trackMatchesActiveFilter);
   const hasNext=gi>=0&&state.tracks.slice(gi+1).some(trackMatchesActiveFilter);
   $('#prevBtn').disabled=!hasPrev;
+  $('#nextBtn').disabled=!hasNext;
   $('#saveNextBtn').disabled=!hasNext
 }
 function refreshFilteredListKeepCurrent(){
@@ -217,7 +218,7 @@ function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.9.1: Review status changes are reflected in the drawer immediately.
+  // v1.0.9.2: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -237,7 +238,7 @@ async function selectTrack(key){
   state.currentKey=key;
   await metaSet('currentKey',key);
 
-  // v1.0.9.1: every explicit song change starts from Apple.
+  // v1.0.9.2: every explicit song change starts from Apple.
   // Covers Previous, drawer selection, Reviewed/Unreviewed selection,
   // and Save & Next via nav().
   switchSection('apple');
@@ -631,7 +632,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.9.1 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.9.2 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -699,7 +700,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.9.1 hotfix:
+    // v1.0.9.2 hotfix:
     // Write the selected MusicBrainz Version directly into M1 here.
     // Do not depend on a separate writeVersionToM1() symbol, because an
     // older cached app.js could otherwise produce Safari's
@@ -927,12 +928,13 @@ function wire(){
   $('#lyricsFileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;const content=await f.text(),t=currentTrack(),d=ensureDecision(t),isLrc=f.name.toLowerCase().endsWith('.lrc')||/^\[\d{1,3}:\d{2}/m.test(content);if(isLrc){d.LyricsSynced=normalizeSynced(content);d.LyricsPlain=plainFromSynced(d.LyricsSynced);d.LyricsChoice='BOTH'}else{d.LyricsSynced='';d.LyricsPlain=content.replace(/\r?\n/g,'\r\n').trim();d.LyricsChoice='PLAIN'}d.LyricsSource='Manual file';d.LyricsEncodingStatus='MANUAL';d.LyricsId='';await saveDecision(d);renderAll();e.target.value=''};
   ['finalTitle','finalArtist','finalAlbum','finalAlbumArtist','finalDate','finalTrack','finalDisc','finalGenre','finalArtwork','lyricsSynced','lyricsPlain'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(id==='lyricsSynced'){const s=normalizeSynced($('#lyricsSynced').value);$('#lyricsPlain').value=s?plainFromSynced(s):$('#lyricsPlain').value}scheduleSave()}));
   $('#prevBtn').onclick=()=>nav(-1);
+  $('#nextBtn').onclick=()=>nav(1);
   $('#saveNextBtn').onclick=async()=>{
     const t=currentTrack(),d=ensureDecision(t);
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.9.1:
+    // v1.0.9.2:
     // Refresh the active filter immediately, then return to Apple
     // before moving to the next matching song.
     refreshFilteredListKeepCurrent();

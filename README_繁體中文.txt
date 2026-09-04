@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.9.1 PWA
+﻿FLAC Metadata Review Mobile v1.0.9.2 PWA
 ===================================
 
 用途
@@ -468,3 +468,26 @@ v1.0.9.1 做兩層修正：
 - 有 Cover 才顯示 Version = v1.0.9
 - Track / Disc / Duration / Δ Time = v1.0.9
 - Apple / Lyrics / Reviewed / Unreviewed 邏輯保持 v1.0.9
+
+
+v1.0.9.2：底部新增 Next
+-----------------------
+底部按鍵由兩個改為三個：
+
+Previous | Next | Save & Next
+
+Next：
+- 直接前往目前 Filter 的下一首歌曲
+- 換歌後自動回 Apple 頁面
+- 適合想先跳過目前歌曲、繼續向後查看時使用
+
+Save & Next：
+- 保持原本流程
+- 儲存目前表單 / Progress
+- 更新 Unreviewed / Reviewed
+- 回 Apple
+- 再前往下一首
+
+注意：
+Apple / MusicBrainz Version 一經選擇，本身仍會依現有 v1.0.9.x
+邏輯即時保存 Decision；新增 Next 不會改這個既有行為。
