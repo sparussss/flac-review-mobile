@@ -447,3 +447,9 @@
   .bottom-nav{grid-template-columns:.9fr .7fr 1.25fr;gap:6px;padding-left:8px;padding-right:8px}
   .bottom-nav button{font-size:11px;padding-left:4px;padding-right:4px}
 }
+
+
+/* v1.0.9.3 — Plain Lyrics only */
+#section-lyrics .lyrics-box{
+  min-height:320px;
+}

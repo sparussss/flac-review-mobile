@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.9.2 PWA
+﻿FLAC Metadata Review Mobile v1.0.9.3 PWA
 ===================================
 
 用途
@@ -491,3 +491,68 @@ Save & Next：
 注意：
 Apple / MusicBrainz Version 一經選擇，本身仍會依現有 v1.0.9.x
 邏輯即時保存 Decision；新增 Next 不會改這個既有行為。
+
+
+v1.0.9.3：改為 Plain Lyrics Only
+---------------------------------
+依照新決定：
+
+- PWA 不再保存時間軸歌詞
+- 不再使用 Synced Lyrics 頁
+- 最終只保存普通 LYRICS
+- Progress 內 LyricsSynced 會保持空白
+- Write Plan 的 SYNCEDLYRICS 欄保留作相容，但內容永遠空白
+
+LRCLIB
+------
+如果 LRCLIB 同時提供 syncedLyrics：
+
+1. 程式仍可讀取它作「分行來源」
+2. 移除每一行前面的 timestamp
+3. 保留原來每一句的換行
+4. 只保存成 LyricsPlain
+5. syncedLyrics 本身立即丟棄
+
+例如：
+[00:12.34]第一句
+[00:16.80]第二句
+[00:21.10]第三句
+
+會保存為：
+第一句
+第二句
+第三句
+
+不會保存：
+[00:12.34]
+[00:16.80]
+[00:21.10]
+
+如果 LRCLIB 只有 plainLyrics：
+- 直接保存它原本的換行
+
+Import .lrc
+-----------
+仍然可以 Import .lrc，
+但只會把 timestamp 移除並保留逐句分行。
+不會把時間軸保存到 Progress。
+
+舊 Progress
+-----------
+如果匯入舊 Progress：
+- LyricsPlain 已存在 → 直接保留
+- 只有 LyricsSynced → 自動去 timestamp 轉成 Plain Lyrics
+- 然後清空 LyricsSynced
+
+LyricsChoice
+------------
+- PLAIN_FROM_SYNCED：由有時間軸版本去除 timestamp 後取得
+- PLAIN：原本就是普通歌詞
+- INSTRUMENTAL：純音樂
+
+其他 v1.0.9.2 功能全部保留：
+- Previous | Next | Save & Next
+- 換歌自動回 Apple
+- Reviewed 顯示已選版本及彩色 Duration Review
+- MusicBrainz v1.0.9.1 hotfix
+- v1.0.9 原本較快的 MusicBrainz 流程

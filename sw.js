@@ -1,5 +1,5 @@
-const CACHE='flac-review-mobile-v1.0.9.2.1-20260904';
-const CORE=['./','./index.html','./styles.css?v=1.0.9.2','./app.js?v=1.0.9.2','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='flac-review-mobile-v1.0.9.3.1-20260904';
+const CORE=['./','./index.html','./styles.css?v=1.0.9.3','./app.js?v=1.0.9.3','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',e=>e.waitUntil(
   caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())

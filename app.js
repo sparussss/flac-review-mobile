@@ -46,7 +46,21 @@ async function metaSet(key,value){return idbPut('meta',{key,value})}
 
 const decisionFields=['FileName','RelativePath','FullPath','Confidence','Decision','CandidateRank','FinalTitle','FinalArtist','FinalAlbum','FinalAlbumArtist','FinalDate','FinalTrackNumber','FinalDiscNumber','FinalGenre','FinalArtworkUrl','MetadataSource','ArtworkSource','SelectedAppleUrl','SelectedAppleTrackId','SelectedMusicBrainzUrl','SelectedMusicBrainzRecordingId','SelectedMusicBrainzReleaseId','SelectedMusicBrainzReleaseGroupId','SelectedMusicBrainzISRC','CandidateDateReference','CandidateDateReferenceType','MusicBrainzSearchStatus','MusicBrainzSearchQuery','MusicBrainzSearchAt','MusicBrainzFoundCountries','MusicBrainzCountryPreference','MusicBrainzMatchedAlbum','MusicBrainzMatchedArtist','MusicBrainzMatchedRecordingId','MusicBrainzMatchedReleaseGroupId','MusicBrainzVersionsJson','MusicBrainzVersionCount',...Array.from({length:3},(_,i)=>i+1).flatMap(r=>['SCORE','COUNTRY','RECORDING_ID','RELEASE_ID','RELEASE_GROUP_ID','TITLE','ARTIST','ALBUM','ALBUMARTIST','DATE','TRACKNUMBER','DISCNUMBER','URL','ARTWORK','ARTWORK_PREVIEW','CAA_STATUS','ISRC','DURATION_MS','DURATION_SEC','TIME','TIME_DELTA_SEC','TIME_DELTA','TIME_DIFF_SEC','DURATION_REVIEW','STATUS','FORMAT','BARCODE','CATALOG'].map(f=>`M${r}_${f}`)),'LyricsEncodingStatus','LyricsSource','LyricsId','LyricsChoice','LyricsPlain','LyricsSynced','LyricsMatchedTitle','LyricsMatchedArtist','LyricsMatchedAlbum','LyricsMatchedDuration','LyricsInstrumental','LyricsAutoSignature','LyricsSearchStatus','LyricsSearchAt','Notes','UpdatedAt'];
 function newDecision(t){const d={};decisionFields.forEach(k=>d[k]='');Object.assign(d,{FileName:t.FileName,RelativePath:t.RelativePath,Confidence:t.Confidence,FinalTitle:t.OLD_TITLE,FinalArtist:t.OLD_ARTIST,FinalAlbum:t.OLD_ALBUM,FinalAlbumArtist:t.OLD_ALBUMARTIST,FinalDate:t.OLD_DATE,FinalTrackNumber:t.OLD_TRACKNUMBER,FinalDiscNumber:t.OLD_DISCNUMBER,FinalGenre:VALID_GENRES.includes(t.TARGET_GENRE)?t.TARGET_GENRE:t.OLD_GENRE});return d}
-function ensureDecision(t){let d=state.decisions.get(t.RelativePath);if(!d){d=newDecision(t);state.decisions.set(t.RelativePath,d)}else{const base=newDecision(t);decisionFields.forEach(k=>{if(!(k in d))d[k]=base[k]??''});d.FileName=t.FileName;d.Confidence=t.Confidence}return d}
+function migrateLyricsToPlainOnly(d){
+  if(!d)return d;
+  const synced=safe(d.LyricsSynced);
+  if(!safe(d.LyricsPlain)&&synced){
+    const normalized=normalizeSynced(synced);
+    d.LyricsPlain=normalized?plainFromSynced(normalized):''
+  }
+  // v1.0.9.3: timestamped lyrics are no longer kept anywhere in Review data.
+  d.LyricsSynced='';
+  if(d.LyricsChoice==='SYNCED'||d.LyricsChoice==='BOTH'){
+    d.LyricsChoice=d.LyricsPlain?'PLAIN_FROM_SYNCED':''
+  }
+  return d
+}
+function ensureDecision(t){let d=state.decisions.get(t.RelativePath);if(!d){d=newDecision(t);state.decisions.set(t.RelativePath,d)}else{const base=newDecision(t);decisionFields.forEach(k=>{if(!(k in d))d[k]=base[k]??''});d.FileName=t.FileName;d.Confidence=t.Confidence}return migrateLyricsToPlainOnly(d)}
 async function saveDecision(d,silent=true){d.UpdatedAt=now();state.decisions.set(d.RelativePath,d);await idbPut('decisions',d);$('#saveState').textContent='已儲存';if(!silent)toast('已儲存')}
 function scheduleSave(){clearTimeout(state.saveTimer);$('#saveState').textContent='儲存中…';state.saveTimer=setTimeout(async()=>{const t=currentTrack();if(!t)return;const d=ensureDecision(t);readFormIntoDecision(d);await saveDecision(d)},350)}
 
@@ -218,14 +232,14 @@ function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.9.2: Review status changes are reflected in the drawer immediately.
+  // v1.0.9.3: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
 function fillForm(d){$('#finalTitle').value=d.FinalTitle||'';$('#finalArtist').value=d.FinalArtist||'';$('#finalAlbum').value=d.FinalAlbum||'';$('#finalAlbumArtist').value=d.FinalAlbumArtist||'';$('#finalDate').value=d.FinalDate||'';$('#finalTrack').value=d.FinalTrackNumber||'';$('#finalDisc').value=d.FinalDiscNumber||'';$('#finalGenre').value=VALID_GENRES.includes(d.FinalGenre)?d.FinalGenre:'Pop';$('#finalArtwork').value=d.FinalArtworkUrl||''}
-function readFormIntoDecision(d){d.FinalTitle=$('#finalTitle').value;d.FinalArtist=$('#finalArtist').value;d.FinalAlbum=$('#finalAlbum').value;d.FinalAlbumArtist=$('#finalAlbumArtist').value;d.FinalDate=$('#finalDate').value;d.FinalTrackNumber=$('#finalTrack').value;d.FinalDiscNumber=$('#finalDisc').value;d.FinalGenre=$('#finalGenre').value;d.FinalArtworkUrl=$('#finalArtwork').value;d.LyricsSynced=normalizeSynced($('#lyricsSynced').value);d.LyricsPlain=d.LyricsSynced?plainFromSynced(d.LyricsSynced):$('#lyricsPlain').value;if(!d.Decision&&[d.FinalTitle,d.FinalArtist,d.FinalAlbum].some(Boolean)){} }
+function readFormIntoDecision(d){d.FinalTitle=$('#finalTitle').value;d.FinalArtist=$('#finalArtist').value;d.FinalAlbum=$('#finalAlbum').value;d.FinalAlbumArtist=$('#finalAlbumArtist').value;d.FinalDate=$('#finalDate').value;d.FinalTrackNumber=$('#finalTrack').value;d.FinalDiscNumber=$('#finalDisc').value;d.FinalGenre=$('#finalGenre').value;d.FinalArtworkUrl=$('#finalArtwork').value;d.LyricsSynced='';d.LyricsPlain=$('#lyricsPlain').value.replace(/\r?\n/g,'\r\n');if(!d.Decision&&[d.FinalTitle,d.FinalArtist,d.FinalAlbum].some(Boolean)){} }
 function renderDecisionInfo(d){$('#decisionInfo').textContent=`Decision: ${d.Decision||'UNREVIEWED'}\nMetadata Source: ${d.MetadataSource||'—'} · Artwork: ${d.ArtworkSource||'—'}\nCandidate DATE ref: ${d.CandidateDateReference||'—'}`}
-function renderLyrics(d){$('#lyricsSynced').value=d.LyricsSynced||'';$('#lyricsPlain').value=d.LyricsPlain||'';$('#lyricsStatus').textContent=d.LyricsSource?`Source: ${d.LyricsSource} · ID: ${d.LyricsId||'—'} · Mode: ${d.LyricsChoice||'—'}\nMatched: ${d.LyricsMatchedTitle||'—'} / ${d.LyricsMatchedArtist||'—'} / ${d.LyricsMatchedAlbum||'—'} / ${d.LyricsMatchedDuration||'—'}s`:'未搜尋'}
+function renderLyrics(d){migrateLyricsToPlainOnly(d);$('#lyricsPlain').value=d.LyricsPlain||'';$('#lyricsStatus').textContent=d.LyricsSource?`Source: ${d.LyricsSource} · ID: ${d.LyricsId||'—'} · Mode: ${d.LyricsChoice||'—'}\nMatched: ${d.LyricsMatchedTitle||'—'} / ${d.LyricsMatchedArtist||'—'} / ${d.LyricsMatchedAlbum||'—'} / ${d.LyricsMatchedDuration||'—'}s`:'未搜尋'}
 function setCurrentCover(d,t){let u=d.FinalArtworkUrl||t.A1_ARTWORK_3000||'';$('#currentCover').src=u?u.replace('/3000x3000bb.jpg','/300x300bb.jpg').replace('/front','/front-250'):'';$('#currentCover').style.visibility=u?'visible':'hidden'}
 function bindCandidateButtons(){$$('[data-use]').forEach(b=>b.onclick=()=>applyCandidate(b.dataset.use));$$('[data-open]').forEach(b=>b.onclick=()=>window.open(b.dataset.open,'_blank'))}
 async function selectTrack(key){
@@ -238,7 +252,7 @@ async function selectTrack(key){
   state.currentKey=key;
   await metaSet('currentKey',key);
 
-  // v1.0.9.2: every explicit song change starts from Apple.
+  // v1.0.9.3: every explicit song change starts from Apple.
   // Covers Previous, drawer selection, Reviewed/Unreviewed selection,
   // and Save & Next via nav().
   switchSection('apple');
@@ -632,7 +646,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.9.2 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.9.3 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -700,7 +714,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.9.2 hotfix:
+    // v1.0.9.3 hotfix:
     // Write the selected MusicBrainz Version directly into M1 here.
     // Do not depend on a separate writeVersionToM1() symbol, because an
     // older cached app.js could otherwise produce Safari's
@@ -805,8 +819,28 @@ function clearAutoLyrics(d){
 }
 async function useLyricsResult(r,label,options={}){
   const key=options.targetKey||state.currentKey,t=lyricsTargetTrack(key);if(!t)return;
-  const d=ensureDecision(t),syn=normalizeSynced(r.syncedLyrics||''),plain=syn?plainFromSynced(syn):safe(r.plainLyrics).replace(/\r?\n/g,'\r\n').trim();
-  Object.assign(d,{LyricsSource:label,LyricsEncodingStatus:'UTF8_OK',LyricsId:safe(r.id),LyricsSynced:syn,LyricsPlain:plain,LyricsMatchedTitle:safe(r.trackName||r.name),LyricsMatchedArtist:safe(r.artistName),LyricsMatchedAlbum:safe(r.albumName),LyricsMatchedDuration:safe(r.duration),LyricsInstrumental:safe(r.instrumental),LyricsChoice:syn&&plain?'BOTH':syn?'SYNCED':plain?'PLAIN':r.instrumental?'INSTRUMENTAL':'',LyricsAutoSignature:options.signature||d.LyricsAutoSignature,LyricsSearchStatus:'MATCHED',LyricsSearchAt:now()});
+  const d=ensureDecision(t);
+  const syn=normalizeSynced(r.syncedLyrics||'');
+  const plainFromLrc=syn?plainFromSynced(syn):'';
+  const plain=plainFromLrc||safe(r.plainLyrics).replace(/\r?\n/g,'\r\n').trim();
+
+  Object.assign(d,{
+    LyricsSource:label,
+    LyricsEncodingStatus:'UTF8_OK',
+    LyricsId:safe(r.id),
+    LyricsSynced:'',
+    LyricsPlain:plain,
+    LyricsMatchedTitle:safe(r.trackName||r.name),
+    LyricsMatchedArtist:safe(r.artistName),
+    LyricsMatchedAlbum:safe(r.albumName),
+    LyricsMatchedDuration:safe(r.duration),
+    LyricsInstrumental:safe(r.instrumental),
+    LyricsChoice:plainFromLrc?'PLAIN_FROM_SYNCED':plain?'PLAIN':r.instrumental?'INSTRUMENTAL':'',
+    LyricsAutoSignature:options.signature||d.LyricsAutoSignature,
+    LyricsSearchStatus:'MATCHED',
+    LyricsSearchAt:now()
+  });
+
   await saveDecision(d);
   if(currentTrack()?.RelativePath===key){renderAll();if(options.switchToLyrics!==false)switchSection('lyrics')}
 }
@@ -877,8 +911,8 @@ function showLyricsChoices(results,options={}){
 }
 
 function selectedDuration(t,d){if(/^A[123]$/.test(d.Decision)){const p=d.Decision+'_';return{DurationSec:t[p+'DURATION_SEC'],Time:t[p+'TIME'],DeltaSec:t[p+'TIME_DELTA_SEC'],Delta:t[p+'TIME_DELTA'],DiffSec:t[p+'TIME_DIFF_SEC'],Review:t[p+'DURATION_REVIEW']}}if(/^M[123]$/.test(d.Decision)){const p=d.Decision+'_';return{DurationSec:d[p+'DURATION_SEC'],Time:d[p+'TIME'],DeltaSec:d[p+'TIME_DELTA_SEC'],Delta:d[p+'TIME_DELTA'],DiffSec:d[p+'TIME_DIFF_SEC'],Review:d[p+'DURATION_REVIEW']}}return{DurationSec:'',Time:'',DeltaSec:'',Delta:'',DiffSec:'',Review:''}}
-async function exportProgress(){for(const t of state.tracks)ensureDecision(t);const rows=state.tracks.map(t=>state.decisions.get(t.RelativePath));download('FLAC_Review_Decisions_v1.csv',makeCSV(rows,decisionFields));toast('Progress 已匯出')}
-async function exportWritePlan(){const rows=state.tracks.map(t=>{const d=ensureDecision(t),sd=selectedDuration(t,d);return{ReviewStatus:d.Decision?'REVIEWED':'UNREVIEWED',Decision:d.Decision,CandidateRank:d.CandidateRank,Confidence:t.Confidence,FileName:t.FileName,RelativePath:t.RelativePath,FullPath:d.FullPath,OLD_TITLE:t.OLD_TITLE,OLD_ARTIST:t.OLD_ARTIST,OLD_ALBUM:t.OLD_ALBUM,OLD_ALBUMARTIST:t.OLD_ALBUMARTIST,OLD_DATE:t.OLD_DATE,OLD_TRACKNUMBER:t.OLD_TRACKNUMBER,OLD_DISCNUMBER:t.OLD_DISCNUMBER,OLD_GENRE:t.OLD_GENRE,FINAL_TITLE:d.FinalTitle,FINAL_ARTIST:d.FinalArtist,FINAL_ALBUM:d.FinalAlbum,FINAL_ALBUMARTIST:d.FinalAlbumArtist,FINAL_DATE:d.FinalDate,FINAL_TRACKNUMBER:d.FinalTrackNumber,FINAL_DISCNUMBER:d.FinalDiscNumber,FINAL_GENRE:d.FinalGenre,FINAL_ARTWORK_URL:d.FinalArtworkUrl,MetadataSource:d.MetadataSource,ArtworkSource:d.ArtworkSource,SelectedAppleUrl:d.SelectedAppleUrl,SelectedAppleTrackId:d.SelectedAppleTrackId,SelectedMusicBrainzUrl:d.SelectedMusicBrainzUrl,SelectedMusicBrainzRecordingId:d.SelectedMusicBrainzRecordingId,SelectedMusicBrainzReleaseId:d.SelectedMusicBrainzReleaseId,SelectedMusicBrainzReleaseGroupId:d.SelectedMusicBrainzReleaseGroupId,SelectedMusicBrainzISRC:d.SelectedMusicBrainzISRC,CandidateDateReference:d.CandidateDateReference,CandidateDateReferenceType:d.CandidateDateReferenceType,LyricsSource:d.LyricsSource,LyricsEncodingStatus:d.LyricsEncodingStatus,LyricsId:d.LyricsId,LyricsChoice:d.LyricsChoice,LYRICS:d.LyricsPlain,SYNCEDLYRICS:d.LyricsSynced,LyricsMatchedTitle:d.LyricsMatchedTitle,LyricsMatchedArtist:d.LyricsMatchedArtist,LyricsMatchedAlbum:d.LyricsMatchedAlbum,LyricsMatchedDuration:d.LyricsMatchedDuration,LyricsInstrumental:d.LyricsInstrumental,DurationSeconds:t.DurationSeconds,FLAC_DURATION_SEC:t.FLAC_DURATION_SEC,FLAC_TIME:t.FLAC_TIME,SelectedCandidateDurationSec:sd.DurationSec,SelectedCandidateTime:sd.Time,SelectedCandidateDeltaSec:sd.DeltaSec,SelectedCandidateDelta:sd.Delta,SelectedCandidateTimeDiffSec:sd.DiffSec,SelectedCandidateDurationReview:sd.Review,Notes:d.Notes,UpdatedAt:d.UpdatedAt}});const headers=Object.keys(rows[0]||{}),stamp=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download(`FLAC_Write_Plan_${stamp}.csv`,makeCSV(rows,headers));toast('Write Plan 已匯出')}
+async function exportProgress(){for(const t of state.tracks){const d=ensureDecision(t);migrateLyricsToPlainOnly(d)}const rows=state.tracks.map(t=>state.decisions.get(t.RelativePath));download('FLAC_Review_Decisions_v1.csv',makeCSV(rows,decisionFields));toast('Progress 已匯出')}
+async function exportWritePlan(){const rows=state.tracks.map(t=>{const d=ensureDecision(t),sd=selectedDuration(t,d);return{ReviewStatus:d.Decision?'REVIEWED':'UNREVIEWED',Decision:d.Decision,CandidateRank:d.CandidateRank,Confidence:t.Confidence,FileName:t.FileName,RelativePath:t.RelativePath,FullPath:d.FullPath,OLD_TITLE:t.OLD_TITLE,OLD_ARTIST:t.OLD_ARTIST,OLD_ALBUM:t.OLD_ALBUM,OLD_ALBUMARTIST:t.OLD_ALBUMARTIST,OLD_DATE:t.OLD_DATE,OLD_TRACKNUMBER:t.OLD_TRACKNUMBER,OLD_DISCNUMBER:t.OLD_DISCNUMBER,OLD_GENRE:t.OLD_GENRE,FINAL_TITLE:d.FinalTitle,FINAL_ARTIST:d.FinalArtist,FINAL_ALBUM:d.FinalAlbum,FINAL_ALBUMARTIST:d.FinalAlbumArtist,FINAL_DATE:d.FinalDate,FINAL_TRACKNUMBER:d.FinalTrackNumber,FINAL_DISCNUMBER:d.FinalDiscNumber,FINAL_GENRE:d.FinalGenre,FINAL_ARTWORK_URL:d.FinalArtworkUrl,MetadataSource:d.MetadataSource,ArtworkSource:d.ArtworkSource,SelectedAppleUrl:d.SelectedAppleUrl,SelectedAppleTrackId:d.SelectedAppleTrackId,SelectedMusicBrainzUrl:d.SelectedMusicBrainzUrl,SelectedMusicBrainzRecordingId:d.SelectedMusicBrainzRecordingId,SelectedMusicBrainzReleaseId:d.SelectedMusicBrainzReleaseId,SelectedMusicBrainzReleaseGroupId:d.SelectedMusicBrainzReleaseGroupId,SelectedMusicBrainzISRC:d.SelectedMusicBrainzISRC,CandidateDateReference:d.CandidateDateReference,CandidateDateReferenceType:d.CandidateDateReferenceType,LyricsSource:d.LyricsSource,LyricsEncodingStatus:d.LyricsEncodingStatus,LyricsId:d.LyricsId,LyricsChoice:d.LyricsChoice,LYRICS:d.LyricsPlain,SYNCEDLYRICS:'',LyricsMatchedTitle:d.LyricsMatchedTitle,LyricsMatchedArtist:d.LyricsMatchedArtist,LyricsMatchedAlbum:d.LyricsMatchedAlbum,LyricsMatchedDuration:d.LyricsMatchedDuration,LyricsInstrumental:d.LyricsInstrumental,DurationSeconds:t.DurationSeconds,FLAC_DURATION_SEC:t.FLAC_DURATION_SEC,FLAC_TIME:t.FLAC_TIME,SelectedCandidateDurationSec:sd.DurationSec,SelectedCandidateTime:sd.Time,SelectedCandidateDeltaSec:sd.DeltaSec,SelectedCandidateDelta:sd.Delta,SelectedCandidateTimeDiffSec:sd.DiffSec,SelectedCandidateDurationReview:sd.Review,Notes:d.Notes,UpdatedAt:d.UpdatedAt}});const headers=Object.keys(rows[0]||{}),stamp=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download(`FLAC_Write_Plan_${stamp}.csv`,makeCSV(rows,headers));toast('Write Plan 已匯出')}
 
 function switchSection(name){$$('.section-tab').forEach(b=>b.classList.toggle('active',b.dataset.section===name));$$('.section').forEach(s=>s.classList.toggle('active',s.id===`section-${name}`));if(name==='musicbrainz')void maybeAutoFindMusicBrainz()}
 function openDrawer(){$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#scrim').classList.remove('hidden');renderTrackList()}
@@ -920,13 +954,13 @@ function setupStickyMetrics(){
 
 function wire(){
   $('#menuBtn').onclick=openDrawer;$('#closeDrawerBtn').onclick=closeDrawer;$('#scrim').onclick=closeDrawer;
-  $$('.section-tab').forEach(b=>b.onclick=()=>switchSection(b.dataset.section));$$('.lyrics-tab').forEach(b=>b.onclick=()=>{$$('.lyrics-tab').forEach(x=>x.classList.toggle('active',x===b));$('#lyricsSynced').classList.toggle('hidden',b.dataset.lyrics!=='synced');$('#lyricsPlain').classList.toggle('hidden',b.dataset.lyrics!=='plain')});
+  $$('.section-tab').forEach(b=>b.onclick=()=>switchSection(b.dataset.section));
   ['matchFileInput','matchFileInputDrawer'].forEach(id=>$('#'+id).onchange=e=>{const f=e.target.files[0];if(f)importMatcher(f);e.target.value='' });['progressFileInput','progressFileInputWelcome'].forEach(id=>$('#'+id).onchange=e=>{const f=e.target.files[0];if(f)importProgress(f);e.target.value='' });
   $('#exportProgressBtn').onclick=exportProgress;$('#exportWritePlanBtn').onclick=exportWritePlan;$('#searchInput').oninput=()=>applyFilter();$('#filterSelect').onchange=()=>applyFilter();$('#keepBtn').onclick=keepOriginal;$('#manualBtn').onclick=manual;$('#openAppleBtn').onclick=()=>{const t=currentTrack(),d=ensureDecision(t);const u=d.SelectedAppleUrl||t.A1_URL;if(u)window.open(u,'_blank');else toast('沒有 Apple URL')};$('#mbSearchBtn').onclick=()=>searchMusicBrainz({auto:false});
   $('#mbVersionCountryFilter').onchange=()=>{const t=currentTrack();if(t)renderMusicBrainzVersions(t,ensureDecision(t))};
   $('#lyricsSearchBtn').onclick=()=>searchLyrics({auto:false});$('#clearLyricsBtn').onclick=async()=>{if(!confirm('清除這首歌已儲存歌詞？'))return;const t=currentTrack(),d=ensureDecision(t);['LyricsEncodingStatus','LyricsSource','LyricsId','LyricsChoice','LyricsPlain','LyricsSynced','LyricsMatchedTitle','LyricsMatchedArtist','LyricsMatchedAlbum','LyricsMatchedDuration','LyricsInstrumental','LyricsAutoSignature','LyricsSearchStatus','LyricsSearchAt'].forEach(k=>d[k]='');await saveDecision(d);renderAll()};
-  $('#lyricsFileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;const content=await f.text(),t=currentTrack(),d=ensureDecision(t),isLrc=f.name.toLowerCase().endsWith('.lrc')||/^\[\d{1,3}:\d{2}/m.test(content);if(isLrc){d.LyricsSynced=normalizeSynced(content);d.LyricsPlain=plainFromSynced(d.LyricsSynced);d.LyricsChoice='BOTH'}else{d.LyricsSynced='';d.LyricsPlain=content.replace(/\r?\n/g,'\r\n').trim();d.LyricsChoice='PLAIN'}d.LyricsSource='Manual file';d.LyricsEncodingStatus='MANUAL';d.LyricsId='';await saveDecision(d);renderAll();e.target.value=''};
-  ['finalTitle','finalArtist','finalAlbum','finalAlbumArtist','finalDate','finalTrack','finalDisc','finalGenre','finalArtwork','lyricsSynced','lyricsPlain'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(id==='lyricsSynced'){const s=normalizeSynced($('#lyricsSynced').value);$('#lyricsPlain').value=s?plainFromSynced(s):$('#lyricsPlain').value}scheduleSave()}));
+  $('#lyricsFileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;const content=await f.text(),t=currentTrack(),d=ensureDecision(t),isLrc=f.name.toLowerCase().endsWith('.lrc')||/^\[\d{1,3}:\d{2}/m.test(content);if(isLrc){const syn=normalizeSynced(content);d.LyricsSynced='';d.LyricsPlain=syn?plainFromSynced(syn):'';d.LyricsChoice=d.LyricsPlain?'PLAIN_FROM_SYNCED':''}else{d.LyricsSynced='';d.LyricsPlain=content.replace(/\r?\n/g,'\r\n').trim();d.LyricsChoice=d.LyricsPlain?'PLAIN':''}d.LyricsSource='Manual file';d.LyricsEncodingStatus='MANUAL';d.LyricsId='';await saveDecision(d);renderAll();e.target.value=''};
+  ['finalTitle','finalArtist','finalAlbum','finalAlbumArtist','finalDate','finalTrack','finalDisc','finalGenre','finalArtwork','lyricsPlain'].forEach(id=>$('#'+id).addEventListener('input',()=>scheduleSave()));
   $('#prevBtn').onclick=()=>nav(-1);
   $('#nextBtn').onclick=()=>nav(1);
   $('#saveNextBtn').onclick=async()=>{
@@ -934,7 +968,7 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.9.2:
+    // v1.0.9.3:
     // Refresh the active filter immediately, then return to Apple
     // before moving to the next matching song.
     refreshFilteredListKeepCurrent();
