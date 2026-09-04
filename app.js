@@ -108,16 +108,34 @@ function applyFilter(){
 function updateProgress(){const total=state.tracks.length,done=state.tracks.filter(t=>!!ensureDecision(t).Decision).length;$('#progressText').textContent=total?`${done} / ${total} · ${Math.round(done/total*100)}% Reviewed`:'未載入資料';$('#progressFill').style.width=total?`${done/total*100}%`:'0%'}
 function renderTrackList(){const box=$('#trackList');if(!box)return;box.innerHTML=state.filtered.map(t=>{const d=ensureDecision(t),s=d.Decision||'—';return `<div class="track-item ${t.RelativePath===state.currentKey?'current':''}" data-key="${esc(t.RelativePath)}"><div class="track-status">${esc(t.Confidence)}<br>${esc(s)}</div><div class="track-copy"><b>${esc(t.OLD_TITLE)}</b>${esc(t.OLD_ARTIST)}</div></div>`}).join('');box.querySelectorAll('.track-item').forEach(el=>el.onclick=()=>{selectTrack(el.dataset.key);closeDrawer()})}
 function summaryItem(k,v){return `<div><b>${esc(k)}</b>${esc(v||'—')}</div>`}
+function compactFlacSummary(t){
+  const time=t.FLAC_TIME||fmtTime(t.DurationSeconds);
+  return `
+    <div class="flac-summary-line">
+      <span class="flac-summary-label">Album</span>
+      <span class="flac-summary-value">${esc(t.OLD_ALBUM||'—')}</span>
+    </div>
+    <div class="flac-summary-line">
+      <span class="flac-summary-label">Album Artist</span>
+      <span class="flac-summary-value">${esc(t.OLD_ALBUMARTIST||'—')}</span>
+    </div>
+    <div class="flac-summary-meta">
+      <span><b>Date</b>${esc(t.OLD_DATE||'—')}</span>
+      <span><b>Track / Disc</b>${esc(t.OLD_TRACKNUMBER||'—')} / ${esc(t.OLD_DISCNUMBER||'—')}</span>
+      <span><b>Genre</b>${esc(t.OLD_GENRE||'—')}</span>
+      <span><b>FLAC</b>${esc(time||'—')}</span>
+    </div>`
+}
 function candidateImage(url){if(!url)return'';let p=url.replace('/3000x3000bb.jpg','/300x300bb.jpg');p=p.replace(/\/front(?:-500|-250)?$/, '/front-250');return `<img src="${esc(p)}" loading="lazy" alt="cover" onerror="this.style.visibility='hidden'">`}
 function appleCandidate(t,r){const p=`A${r}_`,title=t[p+'TITLE'];if(!title)return null;return{rank:`A${r}`,source:'Apple',score:t[p+'SCORE'],country:t[p+'COUNTRY'],title,artist:t[p+'ARTIST'],album:t[p+'ALBUM'],date:t[p+'DATE'],track:t[p+'TRACKNUMBER'],disc:t[p+'DISCNUMBER'],url:t[p+'URL'],art:t[p+'ARTWORK_3000'],time:t[p+'TIME'],delta:t[p+'TIME_DELTA'],durationReview:t[p+'DURATION_REVIEW'],durationSec:t[p+'DURATION_SEC'],trackId:t[p+'TRACK_ID']}}
 function mbCandidate(d,r){const p=`M${r}_`,title=d[p+'TITLE'];if(!title)return null;return{rank:`M${r}`,source:'MusicBrainz',score:d[p+'SCORE'],country:d[p+'COUNTRY'],title,artist:d[p+'ARTIST'],album:d[p+'ALBUM'],albumArtist:d[p+'ALBUMARTIST'],date:d[p+'DATE'],track:d[p+'TRACKNUMBER'],disc:d[p+'DISCNUMBER'],url:d[p+'URL'],art:d[p+'ARTWORK_PREVIEW']||d[p+'ARTWORK'],artFinal:d[p+'ARTWORK'],time:d[p+'TIME'],delta:d[p+'TIME_DELTA'],durationReview:d[p+'DURATION_REVIEW'],durationSec:d[p+'DURATION_SEC'],recordingId:d[p+'RECORDING_ID'],releaseId:d[p+'RELEASE_ID'],releaseGroupId:d[p+'RELEASE_GROUP_ID'],isrc:d[p+'ISRC']}}
 function candidateHTML(c,selected){const cls=c.durationReview||'UNKNOWN',art=c.art?candidateImage(c.art):'';return `<article class="candidate ${selected===c.rank?'selected':''} ${art?'':'no-cover'}">${art}<div><div class="candidate-top"><span class="candidate-rank">${esc(c.rank)} · ${esc(c.source)}</span><span class="candidate-score">Score ${esc(c.score)} · ${esc(c.country)}</span></div><div class="candidate-title">${esc(c.title)}</div><div class="candidate-meta">${esc(c.artist)}<br>${esc(c.album)}<br>${esc(c.date)} · Track ${esc(c.track||'—')} / Disc ${esc(c.disc||'—')}</div><div class="duration-row"><span class="pill">${esc(c.time||'Time —')}</span><span class="pill">Δ ${esc(c.delta||'—')}</span><span class="pill ${esc(cls)}">${esc(cls)}</span></div><div class="candidate-actions"><button data-use="${esc(c.rank)}">Use ${esc(c.rank)}</button>${c.url?`<button class="secondary" data-open="${esc(c.url)}">Open</button>`:'<button class="secondary" disabled>No Link</button>'}</div></div></article>`}
 
-function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t)return;const d=ensureDecision(t);$('#confidenceBadge').textContent=t.Confidence||'—';$('#confidenceBadge').className=`badge ${t.Confidence||''}`;$('#trackTitle').textContent=t.OLD_TITLE;$('#trackArtist').textContent=t.OLD_ARTIST;$('#flacSummary').innerHTML=summaryItem('Album',t.OLD_ALBUM)+summaryItem('Album Artist',t.OLD_ALBUMARTIST)+summaryItem('Date',t.OLD_DATE)+summaryItem('Track / Disc',`${t.OLD_TRACKNUMBER||'—'} / ${t.OLD_DISCNUMBER||'—'}`)+summaryItem('Genre',t.OLD_GENRE)+summaryItem('FLAC Time',t.FLAC_TIME||fmtTime(t.DurationSeconds));
+function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t)return;const d=ensureDecision(t);$('#confidenceBadge').textContent=t.Confidence||'—';$('#confidenceBadge').className=`badge ${t.Confidence||''}`;$('#trackTitle').textContent=t.OLD_TITLE;$('#trackArtist').textContent=t.OLD_ARTIST;$('#flacSummary').innerHTML=compactFlacSummary(t);
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.6: Review status changes are reflected in the drawer immediately.
+  // v1.0.7: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -515,7 +533,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.6 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.7 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -583,7 +601,7 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.6: details are already loaded. Selection does not make another API call.
+    // v1.0.7: details are already loaded. Selection does not make another API call.
     writeVersionToM1(d,t,v);
     Object.assign(d,{
       Decision:'M1',
@@ -739,6 +757,28 @@ async function nav(delta){
   toast(delta>0?'已經係目前 Filter 最後一首':'已經係目前 Filter 第一首')
 }
 
+function updateStickyMetrics(){
+  const header=document.querySelector('.app-header');
+  const progress=document.querySelector('.progress-wrap');
+  const hh=header?.offsetHeight||0;
+  const ph=progress?.offsetHeight||0;
+  if(hh>0)document.documentElement.style.setProperty('--app-header-height',`${hh}px`);
+  if(hh+ph>0)document.documentElement.style.setProperty('--review-sticky-top',`${hh+ph}px`)
+}
+function setupStickyMetrics(){
+  updateStickyMetrics();
+  requestAnimationFrame(updateStickyMetrics);
+  window.addEventListener('resize',updateStickyMetrics,{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(updateStickyMetrics,120),{passive:true});
+  if('ResizeObserver'in window){
+    const ro=new ResizeObserver(()=>updateStickyMetrics());
+    const header=document.querySelector('.app-header');
+    const progress=document.querySelector('.progress-wrap');
+    if(header)ro.observe(header);
+    if(progress)ro.observe(progress)
+  }
+}
+
 function wire(){
   $('#menuBtn').onclick=openDrawer;$('#closeDrawerBtn').onclick=closeDrawer;$('#scrim').onclick=closeDrawer;
   $$('.section-tab').forEach(b=>b.onclick=()=>switchSection(b.dataset.section));$$('.lyrics-tab').forEach(b=>b.onclick=()=>{$$('.lyrics-tab').forEach(x=>x.classList.toggle('active',x===b));$('#lyricsSynced').classList.toggle('hidden',b.dataset.lyrics!=='synced');$('#lyricsPlain').classList.toggle('hidden',b.dataset.lyrics!=='plain')});
@@ -754,7 +794,7 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.6:
+    // v1.0.7:
     // Unreviewed -> completed song disappears immediately.
     // Reviewed   -> completed song is immediately available in that filter.
     // Search text / Confidence filter are preserved.
@@ -764,5 +804,5 @@ function wire(){
 }
 
 async function init(){state.db=await openDB();
-  state.tracks=await idbAll('tracks');const ds=await idbAll('decisions');ds.forEach(d=>state.decisions.set(d.RelativePath,d));state.currentKey=await metaGet('currentKey');wire();if(state.tracks.length){if(!state.tracks.some(t=>t.RelativePath===state.currentKey))state.currentKey=state.tracks[0].RelativePath;$('#emptyState').classList.add('hidden');$('#main').classList.remove('hidden');$('#bottomNav').classList.remove('hidden');applyFilter();renderAll()}else{$('#emptyState').classList.remove('hidden')}if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}
+  state.tracks=await idbAll('tracks');const ds=await idbAll('decisions');ds.forEach(d=>state.decisions.set(d.RelativePath,d));state.currentKey=await metaGet('currentKey');wire();setupStickyMetrics();if(state.tracks.length){if(!state.tracks.some(t=>t.RelativePath===state.currentKey))state.currentKey=state.tracks[0].RelativePath;$('#emptyState').classList.add('hidden');$('#main').classList.remove('hidden');$('#bottomNav').classList.remove('hidden');applyFilter();renderAll()}else{$('#emptyState').classList.remove('hidden')}if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}
 init().catch(e=>{console.error(e);alert('PWA 啟動失敗：'+e.message)});

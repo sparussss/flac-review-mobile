@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.6 PWA
+﻿FLAC Metadata Review Mobile v1.0.7 PWA
 ===================================
 
 用途
@@ -338,3 +338,34 @@ v1.0.6：
 6. Save & Next -> 前往下一首 Unreviewed
 
 這樣可以避免正在 Review 時因清單更新而突然跳去下一首。
+
+
+v1.0.7：iPhone Review 畫面空間優化
+----------------------------------
+依照實際 iPhone 操作畫面重新整理上半部：
+
+1. 原 FLAC 卡片縮短
+- Cover 由 88px 縮至 66px
+- Title / Artist 字體及 padding 收緊
+- Album / Album Artist 保留完整
+- Date / Track / Disc / Genre / FLAC Time 改為同一個 compact metadata row
+- 所有原 FLAC 資料仍然保留，沒有刪除欄位
+
+2. 原 FLAC 卡片 + 四個分頁按鍵固定
+- Review 時向下捲動 Apple / MusicBrainz / Metadata / Lyrics 內容
+- 原 FLAC 卡片及 Apple / MusicBrainz / Metadata / Lyrics 四個按鍵會保持在上方
+- Header / Progress / Review 卡片的 sticky offset 由 JavaScript 依實際 iPhone 高度自動計算
+- 旋轉畫面或 Safari / PWA safe area 改變時亦會重新計算
+
+3. 增加四按鍵以下可用空間
+- App Header、Progress bar、FLAC card、Section heading 全部收緊
+- Apple / MusicBrainz 版本清單可以在畫面中顯示更多內容
+- Bottom Previous / Save & Next 仍保持固定
+
+4. 最頂部顯示版本
+- Header 最上方直接顯示：
+  PWA v1.0.7
+- Drawer / Onboarding 亦同步顯示 v1.0.7
+
+這一版只改 UI / layout，不改 Apple、MusicBrainz、LRCLIB、Review decision
+及 Export Progress / Write Plan 邏輯。
