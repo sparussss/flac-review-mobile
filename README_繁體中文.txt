@@ -1,4 +1,4 @@
-﻿FLAC Metadata Review Mobile v1.0.9 PWA
+﻿FLAC Metadata Review Mobile v1.0.9.1 PWA
 ===================================
 
 用途
@@ -429,3 +429,42 @@ Confidence / Decision / Title / Artist
 優先重新檢查。
 
 KEEP / MANUAL 沒有 candidate duration 時不會硬加 Duration Review。
+
+
+v1.0.9.1 Hotfix：MusicBrainz Version 選擇錯誤
+---------------------------------------------
+這一版完全以 v1.0.9 為基礎。
+
+沒有使用 v1.0.10 / v1.0.11 的分流架構。
+
+修正錯誤：
+Can't find variable: writeVersionToM1
+
+v1.0.9 的 ZIP 原始 app.js 其實包含 writeVersionToM1()，
+但 iPhone / GitHub Pages / Service Worker 在更新過程中可能出現：
+新 index.html + 舊 app.js 的混合 cache 狀態。
+
+這會令畫面顯示 PWA v1.0.9，
+但實際執行的 JavaScript 並非同一 build，
+按 Use this version 時就可能找不到 writeVersionToM1。
+
+v1.0.9.1 做兩層修正：
+
+1. MusicBrainz 選擇版本時，
+   M1 寫入邏輯直接放在 useMusicBrainzVersion() 內，
+   不再依賴外部 writeVersionToM1() function。
+
+2. index.html 改用：
+   app.js?v=1.0.9.1
+   styles.css?v=1.0.9.1
+
+   Service Worker cache 亦更新成 v1.0.9.1，
+   避免 GitHub Pages / Safari 再混用上一版 app.js。
+
+其他功能：
+- MusicBrainz 搜尋速度 / 流程 = v1.0.9
+- 沒有套用 v1.0.10 / v1.0.11 分流
+- 自動 Find Versions = v1.0.9
+- 有 Cover 才顯示 Version = v1.0.9
+- Track / Disc / Duration / Δ Time = v1.0.9
+- Apple / Lyrics / Reviewed / Unreviewed 邏輯保持 v1.0.9

@@ -217,7 +217,7 @@ function renderAll(){if(!state.tracks.length)return;const t=currentTrack();if(!t
   const selected=d.Decision;const ac=[1,2,3].map(r=>appleCandidate(t,r)).filter(Boolean);$('#appleCandidates').innerHTML=ac.length?ac.map(c=>candidateHTML(c,selected)).join(''):'<div class="status-box">Apple candidate 없음 / NONE</div>';
   renderMusicBrainzVersions(t,d);
   fillForm(d);renderDecisionInfo(d);renderLyrics(d);setCurrentCover(d,t);bindCandidateButtons();
-  // v1.0.9: Review status changes are reflected in the drawer immediately.
+  // v1.0.9.1: Review status changes are reflected in the drawer immediately.
   // Keep the current song on screen even if it has just left the Unreviewed filter.
   refreshFilteredListKeepCurrent();
 }
@@ -237,7 +237,7 @@ async function selectTrack(key){
   state.currentKey=key;
   await metaSet('currentKey',key);
 
-  // v1.0.9: every explicit song change starts from Apple.
+  // v1.0.9.1: every explicit song change starts from Apple.
   // Covers Previous, drawer selection, Reviewed/Unreviewed selection,
   // and Save & Next via nav().
   switchSection('apple');
@@ -631,7 +631,7 @@ async function searchMusicBrainz(options={}){
     }else if(msg.includes('HTTP 503')){
       alert(`MusicBrainz 暫時繁忙（HTTP 503）。
 
-v1.0.9 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
+v1.0.9.1 會逐個版本排隊載入；已經成功載入的完整版本會保留。稍後可以再按 Find Versions / Retry。`)
     }else{
       alert(`MusicBrainz 搜尋失敗：
 ${msg}`)
@@ -699,8 +699,48 @@ async function useMusicBrainzVersion(releaseId){
   if(!v)return;
 
   try{
-    // v1.0.9: details are already loaded. Selection does not make another API call.
-    writeVersionToM1(d,t,v);
+    // v1.0.9.1 hotfix:
+    // Write the selected MusicBrainz Version directly into M1 here.
+    // Do not depend on a separate writeVersionToM1() symbol, because an
+    // older cached app.js could otherwise produce Safari's
+    // "Can't find variable: writeVersionToM1" error.
+    for(let r=1;r<=3;r++){
+      for(const f of ['SCORE','COUNTRY','RECORDING_ID','RELEASE_ID','RELEASE_GROUP_ID','TITLE','ARTIST','ALBUM','ALBUMARTIST','DATE','TRACKNUMBER','DISCNUMBER','URL','ARTWORK','ARTWORK_PREVIEW','CAA_STATUS','ISRC','DURATION_MS','DURATION_SEC','TIME','TIME_DELTA_SEC','TIME_DELTA','TIME_DIFF_SEC','DURATION_REVIEW','STATUS','FORMAT','BARCODE','CATALOG']){
+        d[`M${r}_${f}`]=''
+      }
+    }
+    const selectedVersionValues={
+      SCORE:'100.0',
+      COUNTRY:v.country||'',
+      RECORDING_ID:v.recordingId||d.MusicBrainzMatchedRecordingId||'',
+      RELEASE_ID:v.id||'',
+      RELEASE_GROUP_ID:v.releaseGroupId||d.MusicBrainzMatchedReleaseGroupId||'',
+      TITLE:v.trackTitle||t.OLD_TITLE||'',
+      ARTIST:v.trackArtist||v.artist||t.OLD_ARTIST||'',
+      ALBUM:v.title||t.OLD_ALBUM||'',
+      ALBUMARTIST:v.albumArtist||v.artist||'',
+      DATE:v.date==='—'?'':v.date||'',
+      TRACKNUMBER:v.track==='—'?'':v.track||'',
+      DISCNUMBER:v.disc==='—'?'':v.disc||'',
+      URL:`https://musicbrainz.org/release/${v.id}`,
+      ARTWORK:v.artwork||'',
+      ARTWORK_PREVIEW:v.artworkPreview||'',
+      CAA_STATUS:'FRONT',
+      ISRC:v.isrc||'',
+      DURATION_MS:v.durationMs||'',
+      DURATION_SEC:v.durationSec||'',
+      TIME:v.time||'',
+      TIME_DELTA_SEC:v.deltaSec||'',
+      TIME_DELTA:v.delta||'',
+      TIME_DIFF_SEC:v.diff||'',
+      DURATION_REVIEW:v.durationReview||'',
+      STATUS:v.status||'',
+      FORMAT:v.format||'',
+      BARCODE:v.barcode||'',
+      CATALOG:v.catalog||''
+    };
+    Object.entries(selectedVersionValues).forEach(([k,val])=>d[`M1_${k}`]=val);
+
     Object.assign(d,{
       Decision:'M1',
       CandidateRank:'M1',
@@ -892,7 +932,7 @@ function wire(){
     readFormIntoDecision(d);
     await saveDecision(d);
 
-    // v1.0.9:
+    // v1.0.9.1:
     // Refresh the active filter immediately, then return to Apple
     // before moving to the next matching song.
     refreshFilteredListKeepCurrent();
